@@ -1,0 +1,209 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { Package, Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface Product {
+  _id: string;
+  name: string;
+  slug: string;
+  price: number;
+  compareAtPrice?: number;
+  stock: number;
+  isActive: boolean;
+  badge?: string;
+  category?: { name: string; slug: string };
+  createdAt: string;
+}
+
+const BADGE_COLOR: Record<string, string> = {
+  new:        "bg-blue-100 text-blue-700",
+  bestseller: "bg-green-100 text-green-700",
+  sale:       "bg-red-100 text-red-700",
+  trending:   "bg-purple-100 text-purple-700",
+};
+
+export default function AdminProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const q = new URLSearchParams({ page: String(page), ...(search && { search }) });
+    fetch(`/api/admin/products?${q}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) {
+          setProducts(json.data.products);
+          setTotal(json.data.total);
+          setTotalPages(json.data.totalPages);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [page, search]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    setDeleting(id);
+    await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+    setDeleting(null);
+    load();
+  }
+
+  return (
+    <div className="p-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Package className="h-6 w-6 text-[#1a5c14]" />
+          <div>
+            <h1 className="text-2xl font-black text-gray-900">Products</h1>
+            <p className="text-sm text-gray-500">{total} total products</p>
+          </div>
+        </div>
+        <Link
+          href="/admin/products/new"
+          className="flex items-center gap-2 bg-[#1a5c14] hover:bg-[#103a0c] text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+        >
+          <Plus className="h-4 w-4" /> Add Product
+        </Link>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          placeholder="Search products…"
+          className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50 text-left">
+                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Product</th>
+                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Category</th>
+                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Price</th>
+                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Stock</th>
+                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Badge</th>
+                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Status</th>
+                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 7 }).map((__, j) => (
+                      <td key={j} className="px-5 py-4">
+                        <div className="h-4 w-full animate-pulse rounded bg-gray-100" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : products.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-12 text-center text-gray-400">
+                    No products found.
+                  </td>
+                </tr>
+              ) : (
+                products.map((p) => (
+                  <tr key={p._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-4">
+                      <div>
+                        <p className="font-semibold text-gray-900 line-clamp-1">{p.name}</p>
+                        <p className="text-xs text-gray-400">{p.slug}</p>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-gray-600">{p.category?.name ?? "—"}</td>
+                    <td className="px-5 py-4">
+                      <p className="font-semibold text-gray-900">₹{p.price.toLocaleString("en-IN")}</p>
+                      {p.compareAtPrice && (
+                        <p className="text-xs text-gray-400 line-through">₹{p.compareAtPrice.toLocaleString("en-IN")}</p>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={cn("font-semibold", p.stock === 0 ? "text-red-600" : p.stock < 10 ? "text-yellow-600" : "text-gray-900")}>
+                        {p.stock}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      {p.badge ? (
+                        <span className={cn("rounded px-2 py-0.5 text-[11px] font-bold uppercase", BADGE_COLOR[p.badge] ?? "bg-gray-100 text-gray-600")}>
+                          {p.badge}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={cn("rounded px-2 py-0.5 text-[11px] font-bold uppercase", p.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+                        {p.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/admin/products/${p._id}/edit`}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-[#1a5c14] hover:border-[#1a5c14] hover:text-white transition-colors"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(p._id, p.name)}
+                          disabled={deleting === p._id}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors disabled:opacity-50"
+                        >
+                          {deleting === p._id
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Trash2 className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3">
+            <p className="text-xs text-gray-400">Page {page} of {totalPages}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 1}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page === totalPages}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
