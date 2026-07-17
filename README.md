@@ -6,6 +6,24 @@ and women's ethnic wear (kurtis & suit sets).
 
 > स्वस्थ जीवन, खुशहाल जीवन — *Way to Wellness.*
 
+## Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ftheb1ackswordsman%2FSuneraLifestyle&env=MONGODB_URI,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,ADMIN_PORTAL_CODE&envDescription=Secrets%20for%20database%2C%20auth%2C%20image%20uploads%20and%20admin%20access%20(see%20.env.example)&envLink=https%3A%2F%2Fgithub.com%2Ftheb1ackswordsman%2FSuneraLifestyle%2Fblob%2Fmain%2F.env.example)
+
+Click the button, and Vercel will prompt you for the environment variables above.
+
+**The build always succeeds even if you leave them blank** — the public storefront renders
+with built-in sample data. Fill the variables in to enable the database, admin panel, auth,
+image uploads and payments. You can also add/change them later in **Vercel → Project →
+Settings → Environment Variables** (redeploy after changing).
+
+> **Important — MongoDB Atlas + Vercel:** Vercel functions connect from rotating IPs, so in
+> Atlas go to **Network Access → Add IP Address → Allow access from anywhere (`0.0.0.0/0`)**,
+> otherwise the database connection will be blocked.
+
+After the first deploy, seed the database (run locally with your production `MONGODB_URI` in
+`.env`): `npm run seed:admin && npm run seed:catalog`.
+
 ## Tech stack
 
 - **Next.js 15** (App Router, Turbopack) + **React 19** + **TypeScript**

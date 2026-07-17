@@ -19,16 +19,22 @@ interface Line {
   qty: number;
 }
 
-const INITIAL: Line[] = [
-  { ...pick("whey-protein-isolate-chocolate"), size: "1kg", qty: 1 },
-  { ...pick("premium-creatine-monohydrate"), size: "500g", qty: 2 },
-  { ...pick("performance-training-shorts"), size: "M", qty: 1 },
+const SEED: { slug: string; size: string; qty: number }[] = [
+  { slug: "sunera-immunity-kadha", size: "100 g", qty: 1 },
+  { slug: "sanjivani-vedic-slim-fit-powder", size: "100 g", qty: 2 },
+  { slug: "anarkali-cotton-kurti-emerald", size: "M", qty: 1 },
 ];
 
-function pick(slug: string): Omit<Line, "size" | "qty"> {
-  const p = MOCK_PRODUCTS.find((x) => x.slug === slug)!;
+function pick(slug: string): Omit<Line, "size" | "qty"> | null {
+  const p = MOCK_PRODUCTS.find((x) => x.slug === slug);
+  if (!p) return null;
   return { id: p.id, name: p.name, slug: p.slug, image: p.image, price: p.price, compareAtPrice: p.compareAtPrice };
 }
+
+const INITIAL: Line[] = SEED.flatMap(({ slug, size, qty }) => {
+  const base = pick(slug);
+  return base ? [{ ...base, size, qty }] : [];
+});
 
 const FREE_SHIP_THRESHOLD = 999;
 const SHIPPING_FEE = 79;

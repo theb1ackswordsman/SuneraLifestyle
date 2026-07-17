@@ -1,10 +1,9 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-
-if (!MONGODB_URI) {
-  throw new Error("Please define the MONGODB_URI environment variable");
-}
+// Read lazily inside connectDB() — do NOT throw at import time, otherwise any
+// page importing this module (home, shop) would fail to build/render when the
+// env var is absent (e.g. a fresh Vercel deploy before secrets are set).
+const MONGODB_URI = process.env.MONGODB_URI;
 
 interface MongooseCache {
   conn: typeof mongoose | null;
@@ -24,6 +23,11 @@ if (!globalThis.__mongooseCache) {
 export async function connectDB(): Promise<typeof mongoose> {
   if (cache.conn) return cache.conn;
 
+  if (!MONGODB_URI) {
+    throw new Error("MONGODB_URI is not set — database features are unavailable.");
+  }
+  const uri = MONGODB_URI;
+
   if (!cache.promise) {
     const opts: mongoose.ConnectOptions = {
       bufferCommands: false,
@@ -35,7 +39,7 @@ export async function connectDB(): Promise<typeof mongoose> {
     };
 
     cache.promise = mongoose
-      .connect(MONGODB_URI, opts)
+      .connect(uri, opts)
       .then((m) => {
         console.warn("[MongoDB] Connected successfully");
         return m;

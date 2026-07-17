@@ -6,20 +6,20 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_NAME: z.string().default("SunEra Lifestyle"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
-  // MongoDB
-  MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
+  // MongoDB — optional so the app can build/boot without it (DB features degrade)
+  MONGODB_URI: z.string().optional(),
 
-  // JWT
-  JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must be at least 32 chars"),
-  JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 chars"),
+  // JWT (jwt.ts has dev fallbacks; set these in production)
+  JWT_ACCESS_SECRET: z.string().optional(),
+  JWT_REFRESH_SECRET: z.string().optional(),
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
 
-  // Cloudinary
-  CLOUDINARY_CLOUD_NAME: z.string().min(1, "CLOUDINARY_CLOUD_NAME is required"),
-  CLOUDINARY_API_KEY: z.string().min(1, "CLOUDINARY_API_KEY is required"),
-  CLOUDINARY_API_SECRET: z.string().min(1, "CLOUDINARY_API_SECRET is required"),
-  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().min(1),
+  // Cloudinary (image uploads degrade gracefully if unset)
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().optional(),
 
   // Email
   SMTP_HOST: z.string().default("smtp.gmail.com"),
@@ -43,8 +43,12 @@ type Env = z.infer<typeof envSchema>;
 function validateEnv(): Env {
   const parsed = envSchema.safeParse(process.env);
   if (!parsed.success) {
-    const missing = parsed.error.issues.map((i) => `  • ${i.path.join(".")}: ${i.message}`).join("\n");
-    throw new Error(`[SunEra] Invalid environment variables:\n${missing}`);
+    // Never throw — a missing/invalid var must not crash the build or a fresh
+    // deploy. Warn and continue with best-effort defaults; features that need
+    // the missing var will fail gracefully at runtime.
+    const issues = parsed.error.issues.map((i) => `  • ${i.path.join(".")}: ${i.message}`).join("\n");
+    console.warn(`[SunEra] Some environment variables are missing/invalid — running with reduced functionality:\n${issues}`);
+    return envSchema.partial().parse(process.env) as Env;
   }
   return parsed.data;
 }

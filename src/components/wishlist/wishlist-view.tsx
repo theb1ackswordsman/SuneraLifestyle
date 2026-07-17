@@ -10,10 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { MOCK_PRODUCTS } from "@/data/mock/homepage";
 
 const INITIAL_SLUGS = [
-  "whey-protein-isolate-chocolate",
-  "compression-tights-black",
-  "resistance-band-set",
-  "pre-workout-energy-blast",
+  "sanjivani-dravya-ayurvedic-drops",
+  "sanjivani-vedic-detox-tea",
+  "silk-blend-salwar-suit-set-maroon",
+  "sunera-women-care-powder",
 ];
 
 const BADGE_LABEL: Record<string, string> = {
