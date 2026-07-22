@@ -156,12 +156,12 @@ export async function PUT(
           returnDoc.refund.amount     = refundAmount / 100;
           returnDoc.refund.status     = REFUND_STATUS.PROCESSING;
           returnDoc.refund.method     = "razorpay";
-          returnDoc.refund.gatewayRefundId = (rzpRefund as Record<string, unknown>).id as string;
+          returnDoc.refund.gatewayRefundId = (rzpRefund as unknown as Record<string, unknown>).id as string;
           returnDoc.refund.initiatedAt     = new Date();
           returnDoc.refund.notes           = body.refundNotes;
           returnDoc.timeline.push({
             status:      RETURN_STATUS.REFUND_PROCESSING,
-            message:     `Refund of ₹${refundAmount / 100} initiated via Razorpay. ID: ${(rzpRefund as Record<string, unknown>).id}`,
+            message:     `Refund of ₹${refundAmount / 100} initiated via Razorpay. ID: ${(rzpRefund as unknown as Record<string, unknown>).id}`,
             timestamp:   new Date(),
             performedBy: "admin",
           });
