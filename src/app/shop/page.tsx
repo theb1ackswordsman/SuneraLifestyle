@@ -82,14 +82,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   const { products, total, totalPages, page: currentPage } = productResult;
 
-  // Derive label for heading
   const activeParent = type ? categories.find((c) => c.slug === type) : null;
   const activeSub    = category
     ? categories.flatMap((c) => c.subcategories).find((s) => s.slug === category)
     : null;
-  const headingLabel = search
-    ? `Results for "${search}"`
-    : activeSub?.name ?? activeParent?.name ?? "All Products";
 
   return (
     <ShopLayout>

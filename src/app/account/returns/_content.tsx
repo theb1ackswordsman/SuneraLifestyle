@@ -90,7 +90,7 @@ export default function ReturnsContent() {
             </div>
             <h2 className="text-xl font-bold text-foreground mb-2">No return requests</h2>
             <p className="text-sm text-muted-foreground max-w-xs mb-6 leading-relaxed">
-              You haven't submitted any return requests yet. Returns can be requested within 7 days of delivery.
+              You haven&apos;t submitted any return requests yet. Returns can be requested within 7 days of delivery.
             </p>
             <Link href="/account/orders"
               className="rounded-xl bg-foreground px-6 py-3 text-sm font-semibold text-background hover:opacity-90 transition-opacity">

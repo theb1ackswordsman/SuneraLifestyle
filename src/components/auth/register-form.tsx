@@ -20,7 +20,7 @@ const GoogleIcon = () => (
 );
 
 export function RegisterForm() {
-  const { success, error: toastError } = useToast();
+  const { success } = useToast();
   const [serverError, setServerError] = useState("");
   const [registered, setRegistered] = useState(false);
 

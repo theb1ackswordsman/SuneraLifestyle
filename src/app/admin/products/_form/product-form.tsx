@@ -260,7 +260,7 @@ export default function ProductForm({ productId }: Props) {
     } finally {
       setLoadingProduct(false);
     }
-  }, [productId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [productId]);
 
   useEffect(() => { loadProduct(); }, [loadProduct]);
 
@@ -379,7 +379,7 @@ export default function ProductForm({ productId }: Props) {
           ))}
         </div>
         <p className="text-xs text-gray-400">
-          "On Sale" badge appears automatically when Compare At Price is higher than Base Price.
+          &quot;On Sale&quot; badge appears automatically when Compare At Price is higher than Base Price.
         </p>
       </Section>
 

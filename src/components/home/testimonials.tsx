@@ -32,7 +32,7 @@ function MarqueeCard({ t }: { t: (typeof TESTIMONIALS)[number] }) {
       <div className="mt-4 flex items-center gap-3">
         <div
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white bg-gradient-to-br",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white bg-linear-to-br",
             t.avatarGradient
           )}
         >
@@ -104,7 +104,7 @@ export function Testimonials() {
               <div className="mt-8 flex items-center justify-center gap-4">
                 <div
                   className={cn(
-                    "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white bg-gradient-to-br",
+                    "flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white bg-linear-to-br",
                     t.avatarGradient
                   )}
                 >
@@ -156,8 +156,8 @@ export function Testimonials() {
       {/* Infinite scrolling marquee — all reviews */}
       <div className="relative mt-12 overflow-hidden">
         {/* Fade edges */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-muted/40 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-muted/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-linear-to-r from-muted/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-linear-to-l from-muted/40 to-transparent" />
 
         <div
           className="animate-marquee flex gap-4 py-3"

@@ -44,7 +44,7 @@ export function DualPromo() {
                 className="absolute inset-0 h-full w-full object-cover opacity-45 mix-blend-overlay transition-transform duration-500 group-hover:scale-105"
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/20" />
+            <div className="absolute inset-0 bg-linear-to-r from-black/60 to-black/20" />
 
             {/* content */}
             <div className="relative z-10 flex h-full flex-col justify-center p-5 sm:p-8">

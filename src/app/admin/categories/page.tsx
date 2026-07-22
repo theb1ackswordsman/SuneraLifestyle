@@ -237,7 +237,7 @@ export default function AdminCategoriesPage() {
       ) : categories.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
           <p className="text-gray-500 font-medium">No categories yet.</p>
-          <p className="mt-1 text-sm text-gray-400">Click "Add Category" to create your first one.</p>
+          <p className="mt-1 text-sm text-gray-400">Click &quot;Add Category&quot; to create your first one.</p>
         </div>
       ) : (
         <div className="space-y-3">
