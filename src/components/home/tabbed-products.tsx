@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShoppingBag, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MOCK_PRODUCTS } from "@/data/mock/homepage";
 import { ProductCard } from "@/components/shared/product-card";
-import { ArrowRight } from "lucide-react";
+import type { TabbedProductSets, TabbedProduct } from "@/lib/shop/query-tabbed-products";
 
 type Tab = "new" | "bestseller" | "rating";
 
@@ -16,26 +16,40 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "rating",     label: "Top Rated"   },
 ];
 
-function getProducts(tab: Tab) {
-  switch (tab) {
-    case "new":
-      return [...MOCK_PRODUCTS].sort((a, b) => (b.badge === "new" ? 1 : 0) - (a.badge === "new" ? 1 : 0));
-    case "bestseller":
-      return [...MOCK_PRODUCTS].sort((a, b) => (b.badge === "bestseller" ? 1 : 0) - (a.badge === "bestseller" ? 1 : 0));
-    case "rating":
-      return [...MOCK_PRODUCTS].sort((a, b) => b.rating - a.rating);
-  }
+function getBadge(p: TabbedProduct): "new" | "sale" | "bestseller" | undefined {
+  if (p.isBestSeller) return "bestseller";
+  if (p.compareAtPrice && p.compareAtPrice > p.basePrice) return "sale";
+  if (p.isNewArrival) return "new";
+  return undefined;
 }
 
-export function TabbedProducts() {
+function EmptyTab() {
+  return (
+    <div className="col-span-full flex flex-col items-center gap-3 py-16 text-muted-foreground">
+      <ShoppingBag className="h-10 w-10 opacity-20" />
+      <p className="text-sm">No products here yet — add some from the admin panel.</p>
+    </div>
+  );
+}
+
+interface Props { sets: TabbedProductSets }
+
+export function TabbedProducts({ sets }: Props) {
   const [active, setActive] = useState<Tab>("new");
-  const products = getProducts(active);
+
+  const productsByTab: Record<Tab, TabbedProduct[]> = {
+    new:        sets.newArrivals,
+    bestseller: sets.bestSellers,
+    rating:     sets.topRated,
+  };
+
+  const products = productsByTab[active];
 
   return (
     <section className="container-padded py-10">
       {/* Heading */}
       <div className="mb-7 text-center">
-        <h2 className="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">
+        <h2 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
           Featured Products
         </h2>
 
@@ -43,12 +57,14 @@ export function TabbedProducts() {
         <div className="mt-4 flex items-center justify-center gap-0">
           {TABS.map((tab, i) => (
             <div key={tab.id} className="flex items-center">
-              {i > 0 && <span className="h-4 w-px bg-gray-300 mx-4" />}
+              {i > 0 && <span className="mx-4 h-4 w-px bg-border" />}
               <button
                 onClick={() => setActive(tab.id)}
                 className={cn(
                   "relative pb-1 text-sm font-semibold transition-colors",
-                  active === tab.id ? "text-brand-emerald" : "text-gray-500 hover:text-gray-700"
+                  active === tab.id
+                    ? "text-brand-emerald"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {tab.label}
@@ -64,30 +80,36 @@ export function TabbedProducts() {
         </div>
       </div>
 
-      {/* Product Grid */}
-      <motion.div
-        key={active}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-      >
-        {products.slice(0, 5).map((product) => (
-          <ProductCard
-            key={product.id}
-            id={product.id}
-            name={product.name}
-            slug={product.slug}
-            price={product.price}
-            compareAtPrice={product.compareAtPrice}
-            rating={product.rating}
-            reviewCount={product.reviewCount}
-            badge={product.badge}
-            image={product.image}
-            gradient={product.gradient}
-          />
-        ))}
-      </motion.div>
+      {/* Product grid */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={active}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.25 }}
+          className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        >
+          {products.length === 0 ? (
+            <EmptyTab />
+          ) : (
+            products.slice(0, 5).map((p) => (
+              <ProductCard
+                key={p._id}
+                id={p._id}
+                name={p.name}
+                slug={p.slug}
+                price={p.basePrice}
+                compareAtPrice={p.compareAtPrice}
+                rating={p.reviewSummary.average}
+                reviewCount={p.reviewSummary.count}
+                badge={getBadge(p)}
+                image={p.images[0]}
+              />
+            ))
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* View all */}
       <div className="mt-8 text-center">

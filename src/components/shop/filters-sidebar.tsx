@@ -1,11 +1,26 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback, useTransition, useState } from "react";
-import { X, SlidersHorizontal } from "lucide-react";
+import { useCallback, useTransition, useState, useEffect } from "react";
+import { ChevronDown, X, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { CategoryItem } from "@/lib/shop/query-categories";
+
+function Checkbox({ checked }: { checked: boolean }) {
+  return (
+    <span className={cn(
+      "flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors",
+      checked ? "border-brand-emerald bg-brand-emerald" : "border-border bg-background"
+    )}>
+      {checked && (
+        <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="none">
+          <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </span>
+  );
+}
 
 interface FiltersSidebarProps {
   categories: CategoryItem[];
@@ -20,21 +35,32 @@ const BADGE_OPTIONS: { value: BadgeFilter; label: string }[] = [
   { value: "sale",       label: "On Sale"      },
 ];
 
-const RATING_OPTIONS = [
-  { value: "4", label: "4★ & above" },
-  { value: "3", label: "3★ & above" },
-];
-
 export function FiltersSidebar({ categories, className }: FiltersSidebarProps) {
-  const router    = useRouter();
-  const pathname  = usePathname();
-  const params    = useSearchParams();
+  const router   = useRouter();
+  const pathname = usePathname();
+  const params   = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [minInput, setMinInput] = useState(params.get("minPrice") ?? "");
   const [maxInput, setMaxInput] = useState(params.get("maxPrice") ?? "");
 
+  const activeType     = params.get("type")     ?? "";
   const activeCategory = params.get("category") ?? "";
-  const activeBadge    = params.get("badge") ?? "";
+  const activeBadge    = params.get("badge")    ?? "";
+  const activeSize     = params.get("size")     ?? "";
+
+  // Which top-level categories are expanded (the active one + any manually opened)
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(activeType ? [activeType] : []));
+
+  // Sizes — fetched from API when a category/type is active
+  const [sizes, setSizes] = useState<string[]>([]);
+  useEffect(() => {
+    if (!activeType && !activeCategory) { setSizes([]); return; }
+    const qs = activeCategory ? `category=${activeCategory}` : `type=${activeType}`;
+    fetch(`/api/sizes?${qs}`)
+      .then((r) => r.json())
+      .then((j) => setSizes(j.data ?? []))
+      .catch(() => setSizes([]));
+  }, [activeType, activeCategory]);
 
   const push = useCallback(
     (updates: Record<string, string | null>) => {
@@ -43,11 +69,27 @@ export function FiltersSidebar({ categories, className }: FiltersSidebarProps) {
         if (v === null || v === "") next.delete(k);
         else next.set(k, v);
       }
-      next.delete("page"); // reset to page 1 on filter change
+      next.delete("page");
       startTransition(() => router.push(`${pathname}?${next.toString()}`));
     },
     [params, pathname, router]
   );
+
+  function selectType(slug: string) {
+    // Toggle expand/collapse
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+    // Update URL — select this type, clear subcategory
+    push({ type: slug, category: null });
+  }
+
+  function selectSubCategory(subSlug: string, parentSlug: string) {
+    push({ type: parentSlug, category: subSlug });
+  }
 
   function applyPrice() {
     push({ minPrice: minInput || null, maxPrice: maxInput || null });
@@ -56,10 +98,11 @@ export function FiltersSidebar({ categories, className }: FiltersSidebarProps) {
   function clearAll() {
     setMinInput("");
     setMaxInput("");
+    setExpanded(new Set());
     startTransition(() => router.push(pathname));
   }
 
-  const hasFilters = !!(activeCategory || activeBadge || params.get("minPrice") || params.get("maxPrice"));
+  const hasFilters = !!(activeType || activeCategory || activeBadge || activeSize || params.get("minPrice") || params.get("maxPrice"));
 
   return (
     <aside className={cn("space-y-6", pending && "opacity-60 pointer-events-none transition-opacity", className)}>
@@ -81,39 +124,79 @@ export function FiltersSidebar({ categories, className }: FiltersSidebarProps) {
 
       {/* Categories */}
       <div>
-        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Category</p>
-        <ul className="space-y-0.5">
-          <li>
-            <button
-              onClick={() => push({ category: null })}
-              className={cn(
-                "w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
-                !activeCategory
-                  ? "bg-brand-emerald/10 font-semibold text-brand-emerald"
-                  : "text-foreground/70 hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <span>All Products</span>
-            </button>
-          </li>
-          {categories.map((cat) => (
-            <li key={cat.slug}>
-              <button
-                onClick={() => push({ category: cat.slug })}
-                className={cn(
-                  "w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors",
-                  activeCategory === cat.slug
-                    ? "bg-brand-emerald/10 font-semibold text-brand-emerald"
-                    : "text-foreground/70 hover:bg-muted hover:text-foreground"
+        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Categories</p>
+
+        {/* All Products */}
+        <button
+          onClick={() => { setExpanded(new Set()); push({ type: null, category: null }); }}
+          className={cn(
+            "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors mb-0.5",
+            !activeType && !activeCategory
+              ? "font-semibold text-brand-emerald"
+              : "text-foreground/70 hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <Checkbox checked={!activeType && !activeCategory} />
+          All Products
+        </button>
+
+        {/* Top-level categories */}
+        <ul className="space-y-0.5 mt-1">
+          {categories.map((cat) => {
+            const isActive   = activeType === cat.slug;
+            const isExpanded = expanded.has(cat.slug);
+            const hasSubs    = cat.subcategories.length > 0;
+
+            return (
+              <li key={cat._id}>
+                {/* Parent row */}
+                <button
+                  onClick={() => selectType(cat.slug)}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+                    isActive ? "text-brand-emerald" : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  <Checkbox checked={isActive && !activeCategory} />
+                  <span className="flex-1 text-left">{cat.name}</span>
+                  {hasSubs && (
+                    <ChevronDown className={cn(
+                      "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                      isExpanded && "rotate-180"
+                    )} />
+                  )}
+                </button>
+
+                {/* Subcategories — show when expanded */}
+                {hasSubs && isExpanded && (
+                  <ul className="mt-0.5 mb-1 space-y-0.5 pl-3">
+                    {cat.subcategories.map((sub) => {
+                      const subActive = activeCategory === sub.slug;
+                      return (
+                        <li key={sub._id}>
+                          <button
+                            onClick={() => selectSubCategory(sub.slug, cat.slug)}
+                            className={cn(
+                              "w-full flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm transition-colors",
+                              subActive
+                                ? "font-semibold text-brand-emerald"
+                                : "text-foreground/65 hover:bg-muted hover:text-foreground"
+                            )}
+                          >
+                            <Checkbox checked={subActive} />
+                            <span className="flex-1 text-left">{sub.name}</span>
+                            {sub.productCount > 0 && (
+                              <span className="text-xs text-muted-foreground">{sub.productCount}</span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
-              >
-                <span>{cat.name}</span>
-                {cat.productCount > 0 && (
-                  <span className="text-xs text-muted-foreground">{cat.productCount}</span>
-                )}
-              </button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
@@ -139,17 +222,35 @@ export function FiltersSidebar({ categories, className }: FiltersSidebarProps) {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald/30"
           />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={applyPrice}
-          className="mt-2 w-full rounded-lg text-xs"
-        >
+        <Button variant="outline" size="sm" onClick={applyPrice} className="mt-2 w-full rounded-lg text-xs">
           Apply Price
         </Button>
       </div>
 
-      {/* Badge */}
+      {/* Size filter — only shown when sizes exist for the selected category */}
+      {sizes.length > 0 && (
+        <div>
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Size</p>
+          <div className="flex flex-wrap gap-2">
+            {sizes.map((s) => (
+              <button
+                key={s}
+                onClick={() => push({ size: activeSize === s ? null : s })}
+                className={cn(
+                  "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
+                  activeSize === s
+                    ? "border-brand-emerald bg-brand-emerald/10 text-brand-emerald font-semibold"
+                    : "border-border text-foreground/70 hover:border-brand-emerald hover:text-foreground"
+                )}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Product Type badges */}
       <div>
         <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Product Type</p>
         <ul className="space-y-0.5">
@@ -164,14 +265,10 @@ export function FiltersSidebar({ categories, className }: FiltersSidebarProps) {
                     : "text-foreground/70 hover:bg-muted hover:text-foreground"
                 )}
               >
-                <span
-                  className={cn(
-                    "flex h-4 w-4 items-center justify-center rounded border-2 transition-colors",
-                    activeBadge === opt.value
-                      ? "border-brand-emerald bg-brand-emerald"
-                      : "border-border"
-                  )}
-                >
+                <span className={cn(
+                  "flex h-4 w-4 items-center justify-center rounded border-2 transition-colors shrink-0",
+                  activeBadge === opt.value ? "border-brand-emerald bg-brand-emerald" : "border-border"
+                )}>
                   {activeBadge === opt.value && (
                     <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="currentColor">
                       <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -182,32 +279,6 @@ export function FiltersSidebar({ categories, className }: FiltersSidebarProps) {
               </button>
             </li>
           ))}
-        </ul>
-      </div>
-
-      {/* Rating */}
-      <div>
-        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Min Rating</p>
-        <ul className="space-y-0.5">
-          {RATING_OPTIONS.map((opt) => {
-            const active = params.get("rating") === opt.value;
-            return (
-              <li key={opt.value}>
-                <button
-                  onClick={() => push({ rating: active ? null : opt.value })}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                    active
-                      ? "bg-brand-emerald/10 font-semibold text-brand-emerald"
-                      : "text-foreground/70 hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <span className="text-amber-400">{"★".repeat(parseInt(opt.value))}</span>
-                  {opt.label}
-                </button>
-              </li>
-            );
-          })}
         </ul>
       </div>
     </aside>

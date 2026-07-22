@@ -1,35 +1,27 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface HeroSlide {
-  _id?: string;
-  id?: number;
-  eyebrow: string;
-  headline: string;
-  discount?: string;
-  sub?: string;
-  ctaLabel: string;
-  ctaHref: string;
+  image: string;
+  badge?: string;
+  heading?: string;
+  description?: string;
+  primaryLabel?: string;
+  primaryHref?: string;
   secondaryLabel?: string;
   secondaryHref?: string;
-  image?: string;
-  bg?: string;
-  accentColor?: string;
-  // legacy fallback fields
-  imageEmoji?: string;
-  imageLabel?: string;
-  imageBg?: string;
+  textPosition?: "left" | "center";
 }
 
 const AUTOPLAY = 5500;
 
-const variants = {
+const slideVariants = {
   enter: (d: number) => ({ x: d > 0 ? "100%" : "-100%", opacity: 0 }),
   center: { x: 0, opacity: 1 },
   exit:   (d: number) => ({ x: d > 0 ? "-40%" : "40%", opacity: 0 }),
@@ -57,153 +49,116 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
   }, [next, paused, slides.length]);
 
   const slide = slides[current];
-  const hasImage = !!slide.image;
-  const accent = slide.accentColor ?? "#1a5c14";
-  const slideKey = slide._id ?? String(slide.id ?? current);
+  const hasText = !!(slide.heading || slide.badge);
 
   return (
     <section
-      className="relative overflow-hidden min-h-[540px] lg:min-h-[620px] select-none"
+      className="relative overflow-hidden w-full min-h-[62vh] sm:min-h-[70vh] lg:min-h-[78vh] select-none"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
       <AnimatePresence custom={direction} initial={false}>
         <motion.div
-          key={slideKey}
+          key={current}
           custom={direction}
-          variants={variants}
+          variants={slideVariants}
           initial="enter"
           animate="center"
           exit="exit"
           transition={{ type: "tween", duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute inset-0 flex"
-          style={hasImage ? undefined : { backgroundColor: slide.bg ?? "#f7f3ee" }}
+          className="absolute inset-0"
         >
-          {/* Full-bleed background image */}
-          {hasImage && (
-            <>
-              <Image
-                src={slide.image!}
-                alt={slide.headline}
-                fill
-                className="object-cover"
-                priority
-                sizes="100vw"
-              />
-              <div className="absolute inset-0 bg-linear-to-r from-black/75 via-black/45 to-black/10" />
-            </>
-          )}
+          {/* Background image */}
+          <Image
+            src={slide.image}
+            alt={slide.heading ?? `Slide ${current + 1}`}
+            fill
+            className="object-cover"
+            priority={current === 0}
+            sizes="100vw"
+          />
 
-          {/* Left — text content */}
-          <div
-            className={cn(
-              "relative z-10 flex flex-1 flex-col justify-center px-8 pb-16 pt-[104px] md:px-12 lg:px-16 xl:px-24 lg:pt-[112px] lg:pb-24",
-              hasImage ? "lg:max-w-[58%]" : ""
+          {/* Shadow overlay — always present */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent to-black/50" />
+            <div className="absolute inset-0 shadow-[inset_0_0_80px_20px_rgba(0,0,0,0.25)]" />
+            {/* Extra left gradient when text is present */}
+            {hasText && (
+              <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/40 to-transparent" />
             )}
-          >
-            <motion.span
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="mb-3 text-sm font-medium italic"
-              style={{
-                color: hasImage ? "#f5a823" : accent,
-                fontFamily: "Georgia, serif",
-              }}
-            >
-              {slide.eyebrow}
-            </motion.span>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className={cn(
-                "whitespace-pre-line text-5xl font-black leading-none tracking-tighter sm:text-6xl lg:text-7xl xl:text-[80px]",
-                hasImage ? "text-white" : "text-gray-900"
-              )}
-            >
-              {slide.headline}
-            </motion.h1>
-
-            {slide.discount && (
-              <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.18 }}
-                className={cn(
-                  "mt-3 text-lg font-semibold",
-                  hasImage ? "text-white/90" : "text-gray-500"
-                )}
-              >
-                {slide.discount}
-              </motion.p>
-            )}
-
-            {slide.sub && (
-              <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.24 }}
-                className={cn(
-                  "mt-2 max-w-sm text-sm leading-relaxed",
-                  hasImage ? "text-white/70" : "text-gray-400"
-                )}
-              >
-                {slide.sub}
-              </motion.p>
-            )}
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.32 }}
-              className="mt-8 flex flex-wrap items-center gap-3"
-            >
-              <Link href={slide.ctaHref}>
-                <button
-                  className={cn(
-                    "px-8 py-3 text-sm font-bold uppercase tracking-widest transition-colors",
-                    hasImage
-                      ? "bg-white text-gray-900 hover:bg-gray-100"
-                      : "bg-[#0a0a0a] text-white hover:bg-[#2d2d2d]"
-                  )}
-                >
-                  {slide.ctaLabel}
-                </button>
-              </Link>
-              {slide.secondaryLabel && (
-                <Link href={slide.secondaryHref ?? "/about"}>
-                  <button
-                    className={cn(
-                      "px-8 py-3 text-sm font-bold uppercase tracking-widest transition-colors",
-                      hasImage
-                        ? "border border-white/60 text-white hover:border-white hover:bg-white/10"
-                        : "border border-gray-300 text-gray-600 hover:border-gray-500 hover:text-gray-800"
-                    )}
-                  >
-                    {slide.secondaryLabel}
-                  </button>
-                </Link>
-              )}
-            </motion.div>
           </div>
 
-          {/* Right — emoji panel (legacy fallback only) */}
-          {!hasImage && slide.imageEmoji && (
-            <div className="relative hidden flex-1 overflow-hidden lg:flex">
-              <div className={cn("absolute inset-0 bg-linear-to-br opacity-20", slide.imageBg)} />
-              <motion.div
-                initial={{ opacity: 0, scale: 0.92 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.15, duration: 0.6 }}
-                className="relative z-10 flex h-full flex-col items-center justify-center gap-4"
-              >
-                <div className="text-[160px] leading-none">{slide.imageEmoji}</div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
-                  {slide.imageLabel}
-                </p>
-              </motion.div>
+          {/* Text content (left side) */}
+          {hasText && (
+            <div className={cn(
+              "absolute inset-0 flex items-end sm:items-center px-5 sm:px-10 md:px-14 lg:px-20 xl:px-28 pb-12 sm:pb-0",
+              slide.textPosition === "center" && "justify-center px-5 sm:px-8 text-center"
+            )}>
+              <div className={cn(
+                "max-w-lg pt-16 sm:pt-20",
+                slide.textPosition === "center" && "text-center flex flex-col items-center"
+              )}>
+                {/* Badge */}
+                {slide.badge && (
+                  <motion.span
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 }}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-semibold text-white backdrop-blur-sm"
+                  >
+                    {slide.badge}
+                  </motion.span>
+                )}
+
+                {/* Heading */}
+                {slide.heading && (
+                  <motion.h1
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.12 }}
+                    className="mt-3 whitespace-pre-line text-2xl font-bold leading-tight tracking-tight text-white sm:text-3xl md:text-4xl lg:text-5xl"
+                  >
+                    {slide.heading}
+                  </motion.h1>
+                )}
+
+                {/* Description */}
+                {slide.description && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.22 }}
+                    className="mt-3 text-xs leading-relaxed text-white/80 sm:text-sm sm:mt-4 max-w-xs sm:max-w-sm"
+                  >
+                    {slide.description}
+                  </motion.p>
+                )}
+
+                {/* Buttons */}
+                {(slide.primaryLabel || slide.secondaryLabel) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.32 }}
+                    className="mt-5 sm:mt-7 flex flex-wrap items-center gap-2 sm:gap-3"
+                  >
+                    {slide.primaryLabel && slide.primaryHref && (
+                      <Link href={slide.primaryHref}>
+                        <button className="rounded-full bg-brand-emerald px-5 py-2.5 sm:px-7 sm:py-3 text-xs sm:text-sm font-bold text-white shadow-lg transition-all hover:bg-brand-emerald-dark hover:shadow-xl active:scale-95">
+                          {slide.primaryLabel}
+                        </button>
+                      </Link>
+                    )}
+                    {slide.secondaryLabel && slide.secondaryHref && (
+                      <Link href={slide.secondaryHref}>
+                        <button className="rounded-full border-2 border-white/70 px-5 py-2.5 sm:px-7 sm:py-3 text-xs sm:text-sm font-bold text-white backdrop-blur-sm transition-all hover:bg-white/15 active:scale-95">
+                          {slide.secondaryLabel}
+                        </button>
+                      </Link>
+                    )}
+                  </motion.div>
+                )}
+              </div>
             </div>
           )}
         </motion.div>
@@ -213,7 +168,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       <button
         onClick={prev}
         aria-label="Previous slide"
-        className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-white/20 text-white shadow-sm backdrop-blur-sm transition-all hover:scale-110 hover:bg-white/30 sm:left-5"
+        className="absolute left-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white backdrop-blur-sm transition-all hover:scale-110 hover:bg-black/40"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -222,26 +177,21 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       <button
         onClick={next}
         aria-label="Next slide"
-        className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-white/20 text-white shadow-sm backdrop-blur-sm transition-all hover:scale-110 hover:bg-white/30 sm:right-5"
+        className="absolute right-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white backdrop-blur-sm transition-all hover:scale-110 hover:bg-black/40"
       >
         <ChevronRight className="h-4 w-4" />
       </button>
 
       {/* Dots */}
-      <div className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
-        {slides.map((s, i) => (
+      <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+        {slides.map((_, i) => (
           <button
-            key={s._id ?? s.id ?? i}
-            onClick={() => {
-              setDirection(i > current ? 1 : -1);
-              setCurrent(i);
-            }}
+            key={i}
+            onClick={() => { setDirection(i > current ? 1 : -1); setCurrent(i); }}
             aria-label={`Slide ${i + 1}`}
             className={cn(
               "rounded-full shadow transition-all duration-300",
-              i === current
-                ? "h-2.5 w-7 bg-white"
-                : "h-2.5 w-2.5 bg-white/40 hover:bg-white/60"
+              i === current ? "h-2.5 w-7 bg-white" : "h-2.5 w-2.5 bg-white/40 hover:bg-white/70"
             )}
           />
         ))}
@@ -250,7 +200,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       {/* Progress bar */}
       {!paused && (
         <motion.div
-          key={`progress-${slideKey}`}
+          key={`p-${current}`}
           className="absolute bottom-0 left-0 z-20 h-0.5 bg-white/60"
           initial={{ width: "0%" }}
           animate={{ width: "100%" }}

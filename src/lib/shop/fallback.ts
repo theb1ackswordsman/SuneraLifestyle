@@ -38,15 +38,20 @@ function toListItem(p: (typeof MOCK_PRODUCTS)[number]): ProductListItem {
 export function fallbackCategories(): CategoryItem[] {
   const counts = new Map<string, number>();
   for (const p of MOCK_PRODUCTS) {
-    const slug = p.category;
-    counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
   }
-  return [...counts.entries()].map(([slug, productCount]) => ({
-    _id: slug,
-    name: CATEGORY_NAMES[slug] ?? slug,
-    slug,
-    productCount,
-  }));
+  // Group mock subcategories under two top-level parents
+  const ayurveda = ["detox","immunity","weight-management","digestive-care","womens-care","mens-wellness","ayurvedic-medicine"];
+  const clothing  = ["kurtis","suits"];
+  function makeSubs(slugs: string[]) {
+    return slugs.filter((s) => counts.has(s)).map((slug) => ({
+      _id: slug, name: CATEGORY_NAMES[slug] ?? slug, slug, productCount: counts.get(slug) ?? 0,
+    }));
+  }
+  return [
+    { _id: "ayurveda", name: "Ayurvedic Products", slug: "ayurveda", productCount: 0, subcategories: makeSubs(ayurveda) },
+    { _id: "clothing",  name: "Ethnic Wear",         slug: "clothing",  productCount: 0, subcategories: makeSubs(clothing)  },
+  ];
 }
 
 export function fallbackProducts(opts: ProductQuery = {}): ProductQueryResult {

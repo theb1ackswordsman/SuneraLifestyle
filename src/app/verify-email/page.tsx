@@ -91,11 +91,7 @@ function VerifyEmailContent() {
       {status === "success" && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Use code{" "}
-            <span className="font-bold font-mono text-brand-emerald bg-brand-emerald/10 rounded px-2 py-0.5">
-              WELCOME15
-            </span>{" "}
-            for 15% off your first order!
+            Your account is now active. Sign in to start shopping.
           </p>
           <Link href={ROUTES.LOGIN}>
             <Button variant="primary" size="lg" className="w-full rounded-xl">

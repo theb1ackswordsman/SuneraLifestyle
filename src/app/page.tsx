@@ -6,7 +6,9 @@ import { CategoryBanners } from "@/components/home/category-banners";
 import { TabbedProducts } from "@/components/home/tabbed-products";
 import { DualPromo } from "@/components/home/dual-promo";
 import { Testimonials } from "@/components/home/testimonials";
-import { Newsletter } from "@/components/home/newsletter";
+import { CategoryProductsSections } from "@/components/home/category-products-section";
+import { queryFeaturedSections } from "@/lib/shop/query-featured-by-type";
+import { queryTabbedProducts } from "@/lib/shop/query-tabbed-products";
 import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
@@ -14,16 +16,21 @@ export const metadata: Metadata = {
   description: siteConfig.description,
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [featuredSections, tabbedSets] = await Promise.all([
+    queryFeaturedSections(10).catch(() => []),
+    queryTabbedProducts(5).catch(() => ({ newArrivals: [], bestSellers: [], topRated: [] })),
+  ]);
+
   return (
     <ShopLayout>
       <HeroBanner />
       <TrustBadges />
       <CategoryBanners />
-      <TabbedProducts />
+      <TabbedProducts sets={tabbedSets} />
+      <CategoryProductsSections sections={featuredSections} />
       <DualPromo />
       <Testimonials />
-      <Newsletter />
     </ShopLayout>
   );
 }

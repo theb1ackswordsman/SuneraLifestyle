@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/connection";
 import { Order } from "@/models/order.model";
+import "@/models/user.model"; // registers User schema so populate("userId") works
 import { ok, forbidden, handleApiError } from "@/lib/api/response";
 
 export const dynamic = "force-dynamic";
@@ -20,15 +21,18 @@ export async function GET(req: NextRequest) {
     const limit = 20;
     const skip = (page - 1) * limit;
 
+    const paymentMethod = searchParams.get("paymentMethod") ?? "";
+
     const query: Record<string, unknown> = { deletedAt: null };
-    if (status) query.status = status;
+    if (status)        query.status        = status;
+    if (paymentMethod) query.paymentMethod = paymentMethod;
 
     const [orders, total] = await Promise.all([
       Order.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("orderNumber total status paymentStatus paymentMethod createdAt userId shippingAddress")
+        .select("orderNumber total status paymentStatus paymentMethod razorpayPaymentId createdAt userId shippingAddress")
         .populate("userId", "name email")
         .lean(),
       Order.countDocuments(query),

@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { Heart, ShoppingBag, Star } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { addToCart, toggleWishlist, isWishlisted } from "@/lib/cart-wishlist-store";
 
 interface ProductCardProps {
   id: string;
@@ -46,8 +47,11 @@ export function ProductCard({
   onAddToCart,
   onWishlist,
 }: ProductCardProps) {
-  const [wishlisted, setWishlisted] = useState(false);
+  const [wishlisted,  setWishlisted]  = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+
+  // Hydrate wishlist state from localStorage after mount
+  useEffect(() => { setWishlisted(isWishlisted(id)); }, [id]);
 
   const discountPercent =
     compareAtPrice && compareAtPrice > price
@@ -56,12 +60,14 @@ export function ProductCard({
 
   function handleWishlist(e: React.MouseEvent) {
     e.preventDefault();
-    setWishlisted((prev) => !prev);
+    const added = toggleWishlist(id);
+    setWishlisted(added);
     onWishlist?.(id);
   }
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
+    addToCart(id);
     setAddedToCart(true);
     onAddToCart?.(id);
     setTimeout(() => setAddedToCart(false), 1500);
@@ -124,8 +130,8 @@ export function ProductCard({
             </button>
           </div>
 
-          {/* Add to Cart — hover reveal */}
-          <div className="absolute inset-x-3 bottom-3 translate-y-2 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+          {/* Add to Cart — always visible on mobile, hover-reveal on desktop */}
+          <div className="absolute inset-x-3 bottom-3 translate-y-0 opacity-100 transition-all duration-300 sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
             <button
               onClick={handleAddToCart}
               className={cn(

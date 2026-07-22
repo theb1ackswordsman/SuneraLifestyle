@@ -1,38 +1,40 @@
-import { connectDB } from "@/lib/db/connection";
-import { HeroBanner as HeroBannerModel } from "@/models/hero-banner.model";
-import { HERO_SLIDES } from "@/data/mock/homepage";
 import { HeroCarousel, type HeroSlide } from "./hero-carousel";
 
-export async function HeroBanner() {
-  let slides: HeroSlide[] = [];
+const HERO_SLIDES: HeroSlide[] = [
+  {
+    image: "/heroo1.png",
+    badge: "🌿 Premium Ayurvedic Wellness & Ethnic Fashion",
+    heading: "Live Healthy.\nDress Beautifully.",
+    description:
+      "Discover premium Ayurvedic supplements and elegant ethnic wear crafted to help you embrace a healthier lifestyle with timeless style.",
+    primaryLabel: "Shop Supplements",
+    primaryHref: "/shop?category=ayurvedic",
+    secondaryLabel: "Shop Clothing",
+    secondaryHref: "/shop?category=clothing",
+  },
+  {
+    image: "/heroo2.png",
+    badge: "✨ Premium Ethnic Collection",
+    heading: "Timeless Elegance, Crafted for\nEvery Occasion.",
+    description:
+      "Discover beautifully crafted kurtis, suits, and ethnic wear designed for comfort, elegance, and effortless everyday style.",
+    primaryLabel: "Shop Ethnic Wear",
+    primaryHref: "/shop?category=clothing",
+    secondaryLabel: "New Arrivals",
+    secondaryHref: "/collections",
+  },
+  {
+    image: "/heroo3.png",
+    badge: "🌿 100% Ayurvedic Wellness",
+    heading: "Nourish Your Body, Naturally.",
+    description:
+      "Premium herbal supplements crafted with trusted Ayurvedic ingredients to support your everyday wellness and healthy lifestyle.",
+    primaryLabel: "Shop Supplements",
+    primaryHref: "/shop?category=ayurvedic",
+    textPosition: "center" as const,
+  },
+];
 
-  try {
-    await connectDB();
-    const docs = await HeroBannerModel.find({ isActive: true })
-      .sort({ order: 1, createdAt: 1 })
-      .lean();
-
-    slides = docs.map((d) => ({
-      _id: d._id?.toString(),
-      eyebrow: d.eyebrow,
-      headline: d.headline,
-      discount: d.discount,
-      sub: d.sub,
-      ctaLabel: d.ctaLabel,
-      ctaHref: d.ctaHref,
-      secondaryLabel: d.secondaryLabel,
-      secondaryHref: d.secondaryHref,
-      image: d.image,
-      bg: d.bg,
-      accentColor: d.accentColor,
-    }));
-  } catch {
-    // DB unavailable — static fallback below
-  }
-
-  if (!slides.length) {
-    slides = HERO_SLIDES as HeroSlide[];
-  }
-
-  return <HeroCarousel slides={slides} />;
+export function HeroBanner() {
+  return <HeroCarousel slides={HERO_SLIDES} />;
 }

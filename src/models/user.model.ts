@@ -2,6 +2,19 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import { UserRole, USER_ROLES } from "@/constants";
 
+export interface IAddress {
+  _id: mongoose.Types.ObjectId;
+  label: "Home" | "Work" | "Other";
+  name: string;
+  phone: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault: boolean;
+}
+
 export interface IUserDocument extends Document {
   name: string;
   email: string;
@@ -23,6 +36,7 @@ export interface IUserDocument extends Document {
   deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  addresses: IAddress[];
   comparePassword(candidate: string): Promise<boolean>;
   isLocked(): boolean;
 }
@@ -72,6 +86,20 @@ const userSchema = new Schema<IUserDocument>(
     lockUntil: { type: Date },
     lastLoginAt: { type: Date },
     deletedAt: { type: Date },
+    addresses: {
+      type: [{
+        label: { type: String, default: "Home", enum: ["Home", "Work", "Other"] },
+        name: { type: String, required: true },
+        phone: { type: String },
+        line1: { type: String, required: true },
+        line2: String,
+        city: { type: String, required: true },
+        state: { type: String, required: true },
+        pincode: { type: String, required: true },
+        isDefault: { type: Boolean, default: false },
+      }],
+      default: [],
+    },
   },
   {
     timestamps: true,

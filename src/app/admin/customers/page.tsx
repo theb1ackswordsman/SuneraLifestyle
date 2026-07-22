@@ -40,16 +40,23 @@ export default function AdminCustomersPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-5 min-h-screen bg-gray-50">
+      {/* Header */}
       <div className="flex items-center gap-3">
-        <Users className="h-6 w-6 text-[#1a5c14]" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a5c14]/10 shrink-0">
+          <Users className="h-5 w-5 text-[#1a5c14]" />
+        </div>
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Customers</h1>
-          <p className="text-sm text-gray-500">{total} registered customers</p>
+          <h1 className="text-xl font-black text-gray-900">Customers</h1>
+          <p className="text-xs text-gray-500">{total} registered customers</p>
         </div>
       </div>
 
+      {/* Search */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
@@ -57,21 +64,55 @@ export default function AdminCustomersPage() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Search customers…"
-          className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
+          className="w-full rounded-xl border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
         />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Mobile card list */}
+      <div className="sm:hidden space-y-3">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-gray-100" />
+          ))
+        ) : customers.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
+            No customers found.
+          </div>
+        ) : (
+          customers.map((c) => (
+            <div key={c._id} className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 text-sm truncate">{c.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{c.email}</p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase", c.isEmailVerified ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700")}>
+                    {c.isEmailVerified ? "Verified" : "Unverified"}
+                  </span>
+                  <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase", c.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+                    {c.isActive ? "Active" : "Blocked"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>{c.phone ?? "No phone"}</span>
+                <span>Joined {fmtDate(c.createdAt)}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden sm:block bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Name</th>
-                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Email</th>
-                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Phone</th>
-                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Verified</th>
-                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Status</th>
-                <th className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Joined</th>
+                {["Name", "Email", "Phone", "Verified", "Status", "Joined"].map((h) => (
+                  <th key={h} className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider whitespace-nowrap">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -101,9 +142,7 @@ export default function AdminCustomersPage() {
                         {c.isActive ? "Active" : "Blocked"}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-gray-500 text-xs">
-                      {new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                    </td>
+                    <td className="px-5 py-4 text-gray-500 text-xs whitespace-nowrap">{fmtDate(c.createdAt)}</td>
                   </tr>
                 ))
               )}
@@ -120,6 +159,17 @@ export default function AdminCustomersPage() {
           </div>
         )}
       </div>
+
+      {/* Mobile pagination */}
+      {totalPages > 1 && (
+        <div className="flex sm:hidden items-center justify-between">
+          <p className="text-xs text-gray-400">Page {page} of {totalPages}</p>
+          <div className="flex gap-2">
+            <button onClick={() => setPage((p) => p - 1)} disabled={page === 1} className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+            <button onClick={() => setPage((p) => p + 1)} disabled={page === totalPages} className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

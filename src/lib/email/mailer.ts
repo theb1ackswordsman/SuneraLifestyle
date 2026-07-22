@@ -1,18 +1,4 @@
 import nodemailer from "nodemailer";
-import { env } from "@/config/env";
-
-function createTransporter() {
-  if (!env.SMTP_USER || !env.SMTP_PASS) {
-    // Dev: log to console
-    return nodemailer.createTransport({ jsonTransport: true });
-  }
-  return nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465,
-    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
-  });
-}
 
 interface MailOptions {
   to: string;
@@ -21,17 +7,45 @@ interface MailOptions {
   text?: string;
 }
 
-export async function sendEmail({ to, subject, html, text }: MailOptions): Promise<void> {
-  const transporter = createTransporter();
-  const info = await transporter.sendMail({
-    from: env.EMAIL_FROM,
-    to,
-    subject,
-    html,
-    text: text ?? html.replace(/<[^>]+>/g, ""),
-  });
+let _transporter: nodemailer.Transporter | null = null;
 
-  if (process.env.NODE_ENV === "development") {
-    console.warn("[Email dev]", { to, subject, messageId: info.messageId });
+function getTransporter(): nodemailer.Transporter {
+  if (_transporter) return _transporter;
+  _transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS, // Gmail App Password — NOT your Gmail login password
+    },
+  });
+  return _transporter;
+}
+
+export async function sendEmail({ to, subject, html, text }: MailOptions): Promise<void> {
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+
+  if (!user || !pass) {
+    console.warn("[Email] EMAIL_USER or EMAIL_PASS not set — skipping send to:", to);
+    return;
+  }
+
+  const from = process.env.EMAIL_FROM ?? `SunEra Lifestyle <${user}>`;
+
+  console.info("[Email] Sending to:", to, "| subject:", subject, "| from:", from);
+
+  try {
+    const transporter = getTransporter();
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject,
+      html,
+      text: text ?? html.replace(/<[^>]+>/g, ""),
+    });
+    console.info("[Email] Sent OK — messageId:", info.messageId);
+  } catch (err) {
+    console.error("[Email] Gmail SMTP error:", err);
+    throw err;
   }
 }

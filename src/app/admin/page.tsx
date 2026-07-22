@@ -44,7 +44,7 @@ function StatCard({ icon: Icon, label, value, sub, color }: {
   icon: React.ElementType; label: string; value: string; sub?: string; color: string;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-6 flex items-start gap-4 shadow-sm">
+    <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 flex items-start gap-4 shadow-sm">
       <div className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-xl", color)}>
         <Icon className="h-6 w-6" />
       </div>
@@ -81,17 +81,17 @@ export default function AdminDashboard() {
     new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(n);
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-gray-900">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Welcome back, Admin. Here&apos;s what&apos;s happening.</p>
         </div>
         <Link
           href="/"
           target="_blank"
-          className="flex items-center gap-2 text-sm font-semibold text-[#1a5c14] hover:underline"
+          className="flex items-center gap-2 text-sm font-semibold text-[#1a5c14] hover:underline shrink-0"
         >
           View Store <ExternalLink className="h-4 w-4" />
         </Link>
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Recent Orders */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 sm:px-6 py-4">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-gray-400" />
               <h2 className="text-sm font-bold text-gray-900">Recent Orders</h2>
@@ -152,15 +152,15 @@ export default function AdminDashboard() {
           <div className="divide-y divide-gray-50">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="px-6 py-3.5 animate-pulse">
+                <div key={i} className="px-4 sm:px-6 py-3.5 animate-pulse">
                   <div className="h-4 w-3/4 rounded bg-gray-100" />
                 </div>
               ))
             ) : recentOrders.length === 0 ? (
-              <p className="px-6 py-8 text-center text-sm text-gray-400">No orders yet.</p>
+              <p className="px-4 sm:px-6 py-8 text-center text-sm text-gray-400">No orders yet.</p>
             ) : (
               recentOrders.map((o) => (
-                <div key={o._id} className="flex items-center justify-between px-6 py-3.5">
+                <div key={o._id} className="flex items-center justify-between px-4 sm:px-6 py-3.5">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">#{o.orderNumber}</p>
                     <p className="text-xs text-gray-400">
@@ -181,11 +181,11 @@ export default function AdminDashboard() {
 
         {/* Orders by Status */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-4 sm:px-6 py-4">
             <TrendingUp className="h-4 w-4 text-gray-400" />
             <h2 className="text-sm font-bold text-gray-900">Orders by Status</h2>
           </div>
-          <div className="p-6 space-y-3">
+          <div className="p-4 sm:p-6 space-y-3">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="h-6 animate-pulse rounded bg-gray-100" />

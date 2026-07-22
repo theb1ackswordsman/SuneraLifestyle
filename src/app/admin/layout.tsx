@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { AdminSidebar } from "@/components/admin/sidebar";
+import { AdminShell } from "@/components/admin/admin-shell";
 
 export const metadata: Metadata = {
   title: { template: "%s | SunEra Admin", default: "Admin | SunEra Lifestyle" },
@@ -8,12 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex h-screen overflow-hidden bg-[#f7f8fa]">
-      <AdminSidebar />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

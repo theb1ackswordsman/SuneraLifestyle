@@ -1,22 +1,21 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
 import { ShopLayout } from "@/components/layout/shop-layout";
 import { FiltersSidebar } from "@/components/shop/filters-sidebar";
-import { ShopToolbar } from "@/components/shop/shop-toolbar";
+import { ShopToolbarWithFilters } from "@/components/shop/mobile-filters";
 import { Pagination } from "@/components/shop/pagination";
 import { ProductCard } from "@/components/shared/product-card";
 import { queryProducts, type SortOption, type BadgeFilter } from "@/lib/shop/query-products";
 import { queryCategories } from "@/lib/shop/query-categories";
 import { fallbackProducts, fallbackCategories } from "@/lib/shop/fallback";
 import { ShoppingBag } from "lucide-react";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Shop — SunEra Lifestyle",
-  description: "Browse premium health supplements and fitness clothing. Filter by category, price, and more.",
+  description: "Browse premium Ayurvedic products and ethnic wear. Filter by category, price, and more.",
 };
 
-// Category slug → fallback gradient for product cards without images
 const CAT_GRADIENTS: Record<string, string> = {
   detox:                "from-emerald-700 to-emerald-950",
   immunity:             "from-[#1a5c14] to-[#071f04]",
@@ -29,15 +28,10 @@ const CAT_GRADIENTS: Record<string, string> = {
   suits:                "from-rose-700 to-red-950",
 };
 
-function getBadge(p: {
-  isBestSeller: boolean;
-  isNewArrival: boolean;
-  compareAtPrice?: number;
-  basePrice: number;
-}): "bestseller" | "new" | "sale" | undefined {
-  if (p.isBestSeller) return "bestseller";
-  if (p.compareAtPrice && p.compareAtPrice > p.basePrice) return "sale";
-  if (p.isNewArrival) return "new";
+function getBadge(p: { isBestSeller: boolean; isNewArrival: boolean; compareAtPrice?: number; basePrice: number }) {
+  if (p.isBestSeller) return "bestseller" as const;
+  if (p.compareAtPrice && p.compareAtPrice > p.basePrice) return "sale" as const;
+  if (p.isNewArrival) return "new" as const;
   return undefined;
 }
 
@@ -52,7 +46,9 @@ function str(v: string | string[] | undefined): string | undefined {
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const sp = await searchParams;
 
-  const category = str(sp.category);
+  const type     = str(sp.type);       // top-level category slug
+  const category = str(sp.category);   // subcategory slug
+  const size     = str(sp.size);       // variant size (clothing)
   const sort     = str(sp.sort) as SortOption | undefined;
   const badge    = str(sp.badge) as BadgeFilter | undefined;
   const search   = str(sp.q);
@@ -60,57 +56,78 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const minPrice = sp.minPrice ? parseInt(str(sp.minPrice)!) || undefined : undefined;
   const maxPrice = sp.maxPrice ? parseInt(str(sp.maxPrice)!) || undefined : undefined;
 
-  const queryArgs = { category, sort, badge, search, page, minPrice, maxPrice };
-  let productResult: Awaited<ReturnType<typeof queryProducts>>;
   let categories: Awaited<ReturnType<typeof queryCategories>>;
   try {
-    [productResult, categories] = await Promise.all([
-      queryProducts(queryArgs),
-      queryCategories(),
-    ]);
+    categories = await queryCategories();
   } catch {
-    // DB unavailable — render the storefront with mock data so the UI still works
-    productResult = fallbackProducts(queryArgs);
     categories = fallbackCategories();
+  }
+
+  // If top-level type is selected (no specific subcategory), collect all subcategory slugs
+  let categorySlugs: string[] | undefined;
+  if (type && !category) {
+    const parent = categories.find((c) => c.slug === type);
+    if (parent) {
+      categorySlugs = parent.subcategories.map((s) => s.slug);
+    }
+  }
+
+  const queryArgs = { category, categorySlugs, size, sort, badge, search, page, minPrice, maxPrice };
+  let productResult: Awaited<ReturnType<typeof queryProducts>>;
+  try {
+    productResult = await queryProducts(queryArgs);
+  } catch {
+    productResult = fallbackProducts(queryArgs);
   }
 
   const { products, total, totalPages, page: currentPage } = productResult;
 
-  const categoryLabel = category
-    ? categories.find((c) => c.slug === category)?.name ?? category
-    : "All Products";
+  // Derive label for heading
+  const activeParent = type ? categories.find((c) => c.slug === type) : null;
+  const activeSub    = category
+    ? categories.flatMap((c) => c.subcategories).find((s) => s.slug === category)
+    : null;
+  const headingLabel = search
+    ? `Results for "${search}"`
+    : activeSub?.name ?? activeParent?.name ?? "All Products";
 
   return (
     <ShopLayout>
-      {/* Page header */}
-      <div className="bg-linear-to-br from-[#071f04] via-[#103a0c] to-[#1a5c14] pb-10 pt-24 lg:pt-28">
-        <div className="container-padded">
-          <nav className="mb-4 flex items-center gap-2 text-xs text-white/50">
-            <Link href="/" className="hover:text-white/80 transition-colors">Home</Link>
-            <span>/</span>
-            <span className="text-white/80">Shop</span>
-            {category && (
-              <>
-                <span>/</span>
-                <span className="text-white/80">{categoryLabel}</span>
-              </>
-            )}
-          </nav>
-          <h1 className="text-3xl font-black text-white sm:text-4xl">
-            {search ? `Results for "${search}"` : categoryLabel}
-          </h1>
-          <p className="mt-2 text-sm text-white/60">
-            {total > 0 ? `${total} products` : "No products found"}
-          </p>
-        </div>
-      </div>
+      <div className="container-padded pt-24 lg:pt-28">
+        {/* Breadcrumb */}
+        <nav className="mb-4 flex items-center gap-2 text-xs text-muted-foreground pt-2">
+          <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
+          <span>/</span>
+          <Link href="/shop" className="hover:text-foreground transition-colors">Shop</Link>
+          {activeParent && (
+            <>
+              <span>/</span>
+              <Link href={`/shop?type=${activeParent.slug}`} className="hover:text-foreground transition-colors">
+                {activeParent.name}
+              </Link>
+            </>
+          )}
+          {activeSub && (
+            <>
+              <span>/</span>
+              <span className="text-foreground">{activeSub.name}</span>
+            </>
+          )}
+          {!activeParent && !activeSub && !search && (
+            <>
+              <span>/</span>
+              <span className="text-foreground">All Products</span>
+            </>
+          )}
+        </nav>
 
-      {/* Content */}
-      <div className="container-padded py-10">
-        <div className="flex gap-8 lg:gap-10">
-          {/* Sidebar — desktop */}
+        <div className="mb-6 border-b border-border" />
+
+        {/* Layout */}
+        <div className="flex gap-8 lg:gap-10 pb-16">
+          {/* Sidebar */}
           <Suspense>
-            <div className="hidden lg:block w-60 xl:w-64 shrink-0">
+            <div className="hidden lg:block w-56 xl:w-60 shrink-0">
               <div className="sticky top-24">
                 <FiltersSidebar categories={categories} />
               </div>
@@ -119,14 +136,12 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
           {/* Main */}
           <div className="flex-1 min-w-0">
-            {/* Toolbar */}
             <Suspense>
-              <ShopToolbar total={total} className="mb-6" />
+              <ShopToolbarWithFilters total={total} categories={categories} className="mb-5" />
             </Suspense>
 
-            {/* Grid */}
             {products.length === 0 ? (
-              <EmptyState hasFilters={!!(category || badge || minPrice || maxPrice || search)} />
+              <EmptyState hasFilters={!!(type || category || badge || minPrice || maxPrice || search)} />
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
@@ -142,12 +157,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                       reviewCount={product.reviewSummary.count}
                       badge={getBadge(product)}
                       image={product.images[0]}
-                      gradient={CAT_GRADIENTS[product.category?.slug ?? ""] ?? CAT_GRADIENTS.protein}
+                      gradient={CAT_GRADIENTS[product.category?.slug ?? ""] ?? "from-slate-600 to-slate-900"}
                     />
                   ))}
                 </div>
-
-                {/* Pagination */}
                 <Suspense>
                   <div className="mt-12">
                     <Pagination page={currentPage} totalPages={totalPages} />
@@ -172,7 +185,7 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
       <p className="mt-2 text-sm text-muted-foreground max-w-xs">
         {hasFilters
           ? "Try adjusting your filters or clearing them to see more products."
-          : "We haven't added products here yet. Check back soon!"}
+          : "Products haven't been added yet. Check back soon!"}
       </p>
       {hasFilters && (
         <Link
@@ -185,4 +198,3 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
     </div>
   );
 }
-

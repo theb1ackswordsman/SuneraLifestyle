@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("name slug price compareAtPrice stock isActive badge category images createdAt")
+        .select("name slug basePrice compareAtPrice stock isActive isFeatured isBestSeller isNewArrival category images createdAt")
         .populate("category", "name slug")
         .lean(),
       Product.countDocuments(query),
@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const body = await req.json();
-    if (!body.name || !body.price) {
-      return badRequest("Name and price are required.");
+    if (!body.name || !body.basePrice) {
+      return badRequest("Name and base price are required.");
     }
 
     const product = await Product.create({

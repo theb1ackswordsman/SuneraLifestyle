@@ -2,19 +2,59 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Star, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, CheckCircle2, Quote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TESTIMONIALS } from "@/data/mock/homepage";
+
+function StarRow({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
+  const cls = size === "md" ? "h-5 w-5" : "h-3.5 w-3.5";
+  return (
+    <div className="flex gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star
+          key={i}
+          className={cn(cls, i < rating ? "fill-amber-400 text-amber-400" : "fill-muted-foreground/25 text-muted-foreground/25")}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MarqueeCard({ t }: { t: (typeof TESTIMONIALS)[number] }) {
+  return (
+    <div className="w-72 shrink-0 rounded-xl border border-border bg-card p-5 shadow-soft">
+      <div className="mb-3">
+        <StarRow rating={t.rating} size="sm" />
+      </div>
+      <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+        &ldquo;{t.content}&rdquo;
+      </p>
+      <div className="mt-4 flex items-center gap-3">
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white bg-gradient-to-br",
+            t.avatarGradient
+          )}
+        >
+          {t.avatar}
+        </div>
+        <div>
+          <div className="flex items-center gap-1">
+            <p className="text-sm font-semibold text-foreground">{t.name}</p>
+            {t.verified && <CheckCircle2 className="h-3.5 w-3.5 text-brand-emerald" />}
+          </div>
+          <p className="text-xs text-muted-foreground">{t.role}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function Testimonials() {
   const [current, setCurrent] = useState(0);
 
-  function next() {
-    setCurrent((c) => (c + 1) % TESTIMONIALS.length);
-  }
-  function prev() {
-    setCurrent((c) => (c - 1 + TESTIMONIALS.length) % TESTIMONIALS.length);
-  }
+  function next() { setCurrent((c) => (c + 1) % TESTIMONIALS.length); }
+  function prev() { setCurrent((c) => (c - 1 + TESTIMONIALS.length) % TESTIMONIALS.length); }
 
   const t = TESTIMONIALS[current];
 
@@ -24,9 +64,9 @@ export function Testimonials() {
         {/* Header */}
         <div className="mb-12 text-center">
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-brand-emerald">
-            Social Proof
+            Customer Love
           </p>
-          <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+          <h2 className="text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">
             What Our Customers Say
           </h2>
           <div className="mt-4 flex items-center justify-center gap-2">
@@ -35,13 +75,13 @@ export function Testimonials() {
                 <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
               ))}
             </div>
-            <span className="text-sm font-semibold text-foreground">4.9</span>
+            <span className="text-sm font-semibold text-foreground">4.8</span>
             <span className="text-sm text-muted-foreground">· 2,400+ reviews</span>
           </div>
         </div>
 
-        {/* Testimonial Card */}
-        <div className="relative max-w-2xl mx-auto">
+        {/* Featured review card */}
+        <div className="relative mx-auto max-w-2xl">
           <AnimatePresence mode="wait">
             <motion.div
               key={t.id}
@@ -49,21 +89,18 @@ export function Testimonials() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.35 }}
-              className="premium-card p-8 sm:p-10 text-center"
+              className="premium-card p-5 sm:p-8 lg:p-10 text-center"
             >
-              {/* Stars */}
-              <div className="flex justify-center mb-6">
-                {Array.from({ length: t.rating }).map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" />
-                ))}
+              <Quote className="mx-auto mb-4 h-8 w-8 text-brand-emerald/30" />
+
+              <div className="flex justify-center mb-5">
+                <StarRow rating={t.rating} size="md" />
               </div>
 
-              {/* Quote */}
               <blockquote className="text-lg font-medium leading-relaxed text-foreground sm:text-xl">
                 &ldquo;{t.content}&rdquo;
               </blockquote>
 
-              {/* Author */}
               <div className="mt-8 flex items-center justify-center gap-4">
                 <div
                   className={cn(
@@ -76,9 +113,7 @@ export function Testimonials() {
                 <div className="text-left">
                   <div className="flex items-center gap-1.5">
                     <p className="font-bold text-foreground">{t.name}</p>
-                    {t.verified && (
-                      <CheckCircle2 className="h-4 w-4 text-brand-emerald" />
-                    )}
+                    {t.verified && <CheckCircle2 className="h-4 w-4 text-brand-emerald" />}
                   </div>
                   <p className="text-sm text-muted-foreground">{t.role}</p>
                 </div>
@@ -116,30 +151,21 @@ export function Testimonials() {
             </button>
           </div>
         </div>
+      </div>
 
-        {/* All testimonials preview (desktop) */}
-        <div className="mt-10 hidden lg:grid grid-cols-4 gap-4">
-          {TESTIMONIALS.map((t, i) => (
-            <motion.button
-              key={t.id}
-              onClick={() => setCurrent(i)}
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
-              className={cn(
-                "rounded-xl border p-4 text-left transition-all hover:shadow-soft",
-                i === current ? "border-brand-emerald bg-brand-emerald/5" : "border-border bg-background"
-              )}
-            >
-              <div className="flex mb-2">
-                {Array.from({ length: t.rating }).map((_, j) => (
-                  <Star key={j} className="h-3 w-3 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground line-clamp-3 text-left">{t.content}</p>
-              <p className="mt-3 text-xs font-semibold text-foreground">{t.name}</p>
-            </motion.button>
+      {/* Infinite scrolling marquee — all reviews */}
+      <div className="relative mt-12 overflow-hidden">
+        {/* Fade edges */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-muted/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-muted/40 to-transparent" />
+
+        <div
+          className="animate-marquee flex gap-4 py-3"
+          style={{ width: "max-content" }}
+        >
+          {/* Duplicated for seamless loop */}
+          {[...TESTIMONIALS, ...TESTIMONIALS].map((item, i) => (
+            <MarqueeCard key={i} t={item} />
           ))}
         </div>
       </div>

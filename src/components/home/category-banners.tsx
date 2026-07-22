@@ -32,7 +32,7 @@ const BANNERS: Banner[] = [
     heading: "IMMUNITY\nKADHA",
     href: "/shop?category=immunity",
     bg: "from-[#2d8a22] via-[#1a5c14] to-[#071f04]",
-    image: img(STOCK.wellness.herbs),
+    image: "/immunityy.jpg",
   },
   {
     badge: "25% OFF",
@@ -48,7 +48,7 @@ const BANNERS: Banner[] = [
     sub: "Min. 30–50% Off",
     href: "/shop?category=digestive-care",
     bg: "from-amber-600 via-orange-700 to-orange-950",
-    image: img(STOCK.wellness.tea, 1000),
+    image: "/detox.jpg",
     wide: true,
   },
 ];
@@ -109,17 +109,17 @@ export function CategoryBanners() {
 
   return (
     <section className="container-padded py-8">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:grid-rows-2">
-        {/* Large left — spans 2 rows */}
-        <BannerCard b={large} className="min-h-[340px] lg:row-span-2 lg:min-h-0" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
+        {/* Large left — spans 2 rows on desktop */}
+        <BannerCard b={large} className="min-h-70 sm:min-h-80 sm:row-span-2 lg:row-span-2 lg:min-h-0" />
 
         {/* Two small top-right */}
         {smalls.map((b) => (
-          <BannerCard key={b.href} b={b} className="min-h-[200px]" />
+          <BannerCard key={b.href} b={b} className="min-h-45 sm:min-h-50" />
         ))}
 
         {/* Wide bottom-right — spans 2 cols */}
-        <BannerCard b={wide} className="min-h-[200px] lg:col-span-2" />
+        <BannerCard b={wide} className="min-h-45 sm:col-span-2 sm:min-h-50 lg:col-span-2" />
       </div>
     </section>
   );

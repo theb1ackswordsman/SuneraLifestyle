@@ -1,15 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/shared/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { siteConfig } from "@/config/site";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
 
 const geist = Geist({
   subsets: ["latin"],
@@ -94,7 +88,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${geist.variable} ${geistMono.variable}`}
+      className={`${geist.variable} ${geistMono.variable}`}
     >
       <head>
         <link rel="dns-prefetch" href="//res.cloudinary.com" />

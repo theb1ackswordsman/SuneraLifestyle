@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
-import { STOCK, img } from "@/data/mock/images";
 
 const PROMOS = [
   {
@@ -11,8 +10,7 @@ const PROMOS = [
     cta: "Shop Now",
     href: "/shop?category=ayurvedic-medicine",
     bg: "from-[#071f04] via-[#103a0c] to-[#1a5c14]",
-    image: img(STOCK.wellness.dropper, 1000),
-    emoji: "💧",
+    image: "/detox.jpg",
   },
   {
     eyebrow: "New Collection",
@@ -21,8 +19,7 @@ const PROMOS = [
     cta: "Shop Now",
     href: "/shop?category=suits",
     bg: "from-rose-700 via-rose-800 to-red-950",
-    image: img(STOCK.ethnic.saree, 1000),
-    emoji: "👗",
+    image: "/ethnic.jpg",
   },
 ];
 
@@ -34,7 +31,7 @@ export function DualPromo() {
           <Link
             key={p.href}
             href={p.href}
-            className="group relative block min-h-[260px] overflow-hidden rounded-lg"
+            className="group relative block min-h-55 sm:min-h-65 overflow-hidden rounded-lg"
           >
             {/* bg */}
             <div className={cn("absolute inset-0 bg-linear-to-br transition-transform duration-500 group-hover:scale-105", p.bg)} />
@@ -49,17 +46,12 @@ export function DualPromo() {
             )}
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/20" />
 
-            {/* emoji decoration */}
-            <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[100px] leading-none opacity-20 select-none">
-              {p.emoji}
-            </div>
-
             {/* content */}
-            <div className="relative z-10 flex h-full flex-col justify-center p-8">
+            <div className="relative z-10 flex h-full flex-col justify-center p-5 sm:p-8">
               <p className="text-xs font-semibold uppercase tracking-widest text-white/60">
                 {p.eyebrow}
               </p>
-              <h3 className="mt-2 whitespace-pre-line text-3xl font-black leading-tight text-white">
+              <h3 className="mt-2 whitespace-pre-line text-2xl sm:text-3xl font-black leading-tight text-white">
                 {p.heading}
               </h3>
               <p className="mt-2 text-lg font-bold text-[#f5a823]">{p.highlight}</p>
