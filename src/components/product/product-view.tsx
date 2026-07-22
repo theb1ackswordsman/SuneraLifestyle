@@ -88,7 +88,7 @@ function ReviewsSection({ slug, summary }: {
   // Build distribution bars from summary (fill zeros for missing stars)
   const distMap: Record<number, number> = {};
   summary.distribution.forEach((d) => { distMap[d.star] = d.count; });
-  const maxDist = Math.max(...Object.values(distMap), 1);
+  const _maxDist = Math.max(...Object.values(distMap), 1);
 
   return (
     <div className="max-w-3xl">

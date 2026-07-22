@@ -32,7 +32,7 @@ export async function sendEmail({ to, subject, html, text }: MailOptions): Promi
 
   const from = process.env.EMAIL_FROM ?? `SunEra Lifestyle <${user}>`;
 
-  console.info("[Email] Sending to:", to, "| subject:", subject, "| from:", from);
+  console.warn("[Email] Sending to:", to, "| subject:", subject, "| from:", from);
 
   try {
     const transporter = getTransporter();
@@ -43,7 +43,7 @@ export async function sendEmail({ to, subject, html, text }: MailOptions): Promi
       html,
       text: text ?? html.replace(/<[^>]+>/g, ""),
     });
-    console.info("[Email] Sent OK — messageId:", info.messageId);
+    console.warn("[Email] Sent OK — messageId:", info.messageId);
   } catch (err) {
     console.error("[Email] Gmail SMTP error:", err);
     throw err;

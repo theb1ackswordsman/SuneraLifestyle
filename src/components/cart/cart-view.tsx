@@ -7,7 +7,7 @@ import { Minus, Plus, X, ShoppingBag, Tag, ArrowRight, Truck, Loader2, Check } f
 import { cn, formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
-  getCartItems, setCartQty, removeFromCart, addToCart,
+  getCartItems, setCartQty, removeFromCart,
 } from "@/lib/cart-wishlist-store";
 
 interface CartProduct {
