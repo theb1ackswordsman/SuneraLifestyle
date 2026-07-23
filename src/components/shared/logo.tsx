@@ -17,10 +17,11 @@ export function Logo({ height = 40, className, darkBg = false }: LogoProps) {
       )}
     >
       <Image
-        src="/sunera.jpeg"
+        src="/sunera1.png"
         alt="SunEra Lifestyle"
-        width={height}
-        height={height}
+        width={200}
+        height={80}
+        style={{ height, width: "auto" }}
         className="object-contain"
         priority
       />
