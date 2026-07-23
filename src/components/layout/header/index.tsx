@@ -855,7 +855,7 @@ export function Header() {
 
         <div className={cn("transition-colors duration-300", navBg)}>
           <div className="container-padded">
-            <div className="relative flex h-15 items-center justify-between gap-4 lg:h-16">
+            <div className="relative flex h-20 items-center justify-between gap-4 lg:h-16">
 
               {/* Mobile hamburger */}
               <button
@@ -867,7 +867,7 @@ export function Header() {
               </button>
 
               {/* Logo — absolutely centered on mobile, static on desktop */}
-              <Link href={ROUTES.HOME} className="absolute left-1/2 -translate-x-1/2 shrink-0 lg:static lg:translate-x-0">
+              <Link href={ROUTES.HOME} className="absolute left-1/2 -translate-x-1/2 shrink-0 lg:static lg:translate-x-0 mt-3 lg:mt-0">
                 <Logo height={56} />
               </Link>
 

@@ -46,7 +46,7 @@ export function TabbedProducts({ sets }: Props) {
   const products = productsByTab[active];
 
   return (
-    <section className="container-padded py-10">
+    <section id="new-arrivals" className="container-padded py-10">
       {/* Heading */}
       <div className="mb-7 text-center">
         <h2 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">

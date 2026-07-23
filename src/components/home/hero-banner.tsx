@@ -8,9 +8,9 @@ const HERO_SLIDES: HeroSlide[] = [
     description:
       "Discover premium Ayurvedic supplements and elegant ethnic wear crafted to help you embrace a healthier lifestyle with timeless style.",
     primaryLabel: "Shop Supplements",
-    primaryHref: "/shop?category=ayurvedic",
+    primaryHref: "/shop?type=ayurvedic-products",
     secondaryLabel: "Shop Clothing",
-    secondaryHref: "/shop?category=clothing",
+    secondaryHref: "/shop?type=clothes",
   },
   {
     image: "/heroo2.png",
@@ -19,9 +19,9 @@ const HERO_SLIDES: HeroSlide[] = [
     description:
       "Discover beautifully crafted kurtis, suits, and ethnic wear designed for comfort, elegance, and effortless everyday style.",
     primaryLabel: "Shop Ethnic Wear",
-    primaryHref: "/shop?category=clothing",
+    primaryHref: "/shop?type=clothes",
     secondaryLabel: "New Arrivals",
-    secondaryHref: "/collections",
+    secondaryHref: "/#new-arrivals",
   },
   {
     image: "/heroo3.png",
@@ -30,7 +30,7 @@ const HERO_SLIDES: HeroSlide[] = [
     description:
       "Premium herbal supplements crafted with trusted Ayurvedic ingredients to support your everyday wellness and healthy lifestyle.",
     primaryLabel: "Shop Supplements",
-    primaryHref: "/shop?category=ayurvedic",
+    primaryHref: "/shop?type=ayurvedic-products",
     textPosition: "center" as const,
   },
 ];
