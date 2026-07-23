@@ -367,6 +367,12 @@ export function CheckoutContent() {
   const [orderDone, setOrderDone] = useState<string | null>(null);
   const [globalErr, setGlobalErr] = useState("");
 
+  // Pending Razorpay session — stored when user dismisses the modal so they can retry
+  const [pendingRzp, setPendingRzp] = useState<{
+    orderId: string; rzpOrderId: string; orderNumber: string;
+    amount: number; currency: string; keyId: string;
+  } | null>(null);
+
   // ── Load cart ──────────────────────────────────────────────────────────────
   const loadCart = useCallback(async () => {
     const items = getCartItems();
@@ -459,6 +465,60 @@ export function CheckoutContent() {
     };
   }
 
+  // ── Open Razorpay modal (shared by first attempt + retry) ───────────────────
+  function openRzpModal(session: {
+    orderId: string; rzpOrderId: string; orderNumber: string;
+    amount: number; currency: string; keyId: string;
+  }) {
+    const addr = savedAddrs.find((x) => x._id === selectedAddr);
+    const customerName  = addr?.name  || form.name  || "";
+    const customerPhone = addr?.phone || form.phone || userPhone || "";
+
+    const rzp = new window.Razorpay({
+      key:         session.keyId,
+      amount:      session.amount,
+      currency:    session.currency,
+      order_id:    session.rzpOrderId,
+      name:        "SunEra Lifestyle",
+      description: `Order ${session.orderNumber}`,
+      image:       "/sunera1.png",
+      prefill: { name: customerName, email, contact: customerPhone },
+      theme:  { color: "#1a5c14" },
+      modal: {
+        ondismiss: () => {
+          setPlacing(false);
+          setPendingRzp(session); // save so user can retry
+          setGlobalErr("");
+        },
+      },
+      handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
+        setPlacing(true);
+        const verifyRes  = await fetch("/api/orders", {
+          method:  "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId:           session.orderId,
+            razorpayOrderId:   response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+          }),
+        });
+        const verifyJson = await verifyRes.json();
+        if (!verifyRes.ok) {
+          setGlobalErr(verifyJson.error ?? "Payment verification failed. Please contact support.");
+          setPendingRzp(session); // allow retry
+          setPlacing(false);
+          return;
+        }
+        setPendingRzp(null);
+        clearCart();
+        setOrderDone(verifyJson.orderNumber);
+        setPlacing(false);
+      },
+    });
+    rzp.open();
+  }
+
   // ── Place order ───────────────────────────────────────────────────────────
   async function handlePlace(e: React.FormEvent) {
     e.preventDefault();
@@ -479,72 +539,35 @@ export function CheckoutContent() {
         body:    JSON.stringify(buildOrderPayload()),
       });
       const json = await res.json();
-      if (!res.ok) { setGlobalErr(json.error ?? "Failed to place order."); return; }
+      if (!res.ok) { setGlobalErr(json.error ?? "Failed to place order."); setPlacing(false); return; }
 
       const loaded = await loadRazorpayScript();
-      if (!loaded) { setGlobalErr("Could not load payment gateway. Please try again."); return; }
+      if (!loaded) { setGlobalErr("Could not load payment gateway. Please try again."); setPlacing(false); return; }
 
-      const addr = savedAddrs.find((x) => x._id === selectedAddr);
-      const customerName  = addr?.name  || form.name  || "";
-      const customerPhone = addr?.phone || form.phone || userPhone || "";
-
-      const rzp = new window.Razorpay({
-        key:         json.keyId,
+      const session = {
+        orderId:     json.orderId,
+        rzpOrderId:  json.razorpayOrderId,
+        orderNumber: json.orderNumber,
         amount:      json.amount,
         currency:    json.currency,
-        order_id:    json.razorpayOrderId,
-        name:        "SunEra Lifestyle",
-        description: `Order ${json.orderNumber}`,
-        image:       "/sunera1.png",
-        prefill: {
-          name:    customerName,
-          email,
-          contact: customerPhone,
-        },
-        theme:  { color: "#1a5c14" },
-        config: {
-          display: {
-            blocks: {
-              upi: {
-                instruments: [
-                  { method: "upi", flows: ["vpa", "qr", "intent"] },
-                ],
-              },
-            },
-            preferences: { show_default_blocks: true },
-          },
-        },
-        modal:  { ondismiss: () => { setPlacing(false); setGlobalErr("Payment cancelled. Your order has not been placed."); } },
-        handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
-          // Verify on server
-          const verifyRes  = await fetch("/api/orders", {
-            method:  "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              orderId:           json.orderId,
-              razorpayOrderId:   response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            }),
-          });
-          const verifyJson = await verifyRes.json();
-          if (!verifyRes.ok) {
-            setGlobalErr(verifyJson.error ?? "Payment verification failed. Please contact support.");
-            setPlacing(false);
-            return;
-          }
-          clearCart();
-          setOrderDone(verifyJson.orderNumber);
-          setPlacing(false);
-        },
-      });
-      rzp.open();
+        keyId:       json.keyId,
+      };
+      openRzpModal(session);
       // placing stays true until handler or ondismiss fires
-      return;
     } catch {
       setGlobalErr("Something went wrong. Please try again.");
       setPlacing(false);
     }
+  }
+
+  // ── Retry payment for a dismissed/failed Razorpay session ─────────────────
+  async function handleRetryPayment() {
+    if (!pendingRzp) return;
+    setGlobalErr("");
+    const loaded = await loadRazorpayScript();
+    if (!loaded) { setGlobalErr("Could not load payment gateway. Please try again."); return; }
+    setPlacing(true);
+    openRzpModal(pendingRzp);
   }
 
   // ── Guards ────────────────────────────────────────────────────────────────
@@ -566,6 +589,42 @@ export function CheckoutContent() {
   }
 
   if (orderDone) return <SuccessScreen orderNumber={orderDone} />;
+
+  // Payment was started but user closed Razorpay without paying
+  if (pendingRzp) {
+    return (
+      <div className="pt-20 lg:pt-24">
+        <div className="container-padded flex flex-col items-center justify-center py-28 text-center">
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-red-50">
+            <AlertCircle className="h-9 w-9 text-red-500" />
+          </div>
+          <h1 className="text-2xl font-black text-gray-900">Payment Not Completed</h1>
+          <p className="mt-2 text-sm text-muted-foreground max-w-xs">
+            Your order <span className="font-mono font-bold">#{pendingRzp.orderNumber}</span> was created but payment was not received.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Please complete the payment to confirm your order.</p>
+          <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+            <button
+              onClick={handleRetryPayment}
+              disabled={placing}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#1a5c14] px-6 py-3 text-sm font-bold text-white hover:bg-[#154a10] transition-colors disabled:opacity-60"
+            >
+              {placing ? <><Loader2 className="h-4 w-4 animate-spin" /> Opening Payment…</> : <><Zap className="h-4 w-4" /> Retry Payment</>}
+            </button>
+            <button
+              onClick={() => { setPendingRzp(null); setGlobalErr(""); }}
+              className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel &amp; go back
+            </button>
+          </div>
+          {globalErr && (
+            <p className="mt-4 text-xs text-red-600">{globalErr}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-20 lg:pt-24">
