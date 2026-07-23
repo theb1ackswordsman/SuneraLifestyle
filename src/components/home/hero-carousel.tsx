@@ -53,7 +53,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
   return (
     <section
-      className="relative overflow-hidden w-full min-h-[62vh] sm:min-h-[70vh] lg:min-h-[78vh] select-none"
+      className="relative overflow-hidden w-full min-h-[88svh] sm:min-h-[70vh] lg:min-h-[78vh] select-none"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -98,17 +98,6 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                 "max-w-lg pt-16 sm:pt-20",
                 slide.textPosition === "center" && "text-center flex flex-col items-center"
               )}>
-                {/* Badge */}
-                {slide.badge && (
-                  <motion.span
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05 }}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-semibold text-white backdrop-blur-sm"
-                  >
-                    {slide.badge}
-                  </motion.span>
-                )}
 
                 {/* Heading */}
                 {slide.heading && (
@@ -168,7 +157,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       <button
         onClick={prev}
         aria-label="Previous slide"
-        className="absolute left-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white backdrop-blur-sm transition-all hover:scale-110 hover:bg-black/40"
+        className="absolute left-4 top-1/2 z-20 hidden sm:flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white backdrop-blur-sm transition-all hover:scale-110 hover:bg-black/40"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -177,7 +166,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       <button
         onClick={next}
         aria-label="Next slide"
-        className="absolute right-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white backdrop-blur-sm transition-all hover:scale-110 hover:bg-black/40"
+        className="absolute right-4 top-1/2 z-20 hidden sm:flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/20 text-white backdrop-blur-sm transition-all hover:scale-110 hover:bg-black/40"
       >
         <ChevronRight className="h-4 w-4" />
       </button>

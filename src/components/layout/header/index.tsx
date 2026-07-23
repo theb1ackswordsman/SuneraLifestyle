@@ -570,7 +570,7 @@ export function Header() {
 
               {/* Logo */}
               <Link href={ROUTES.HOME} className="shrink-0">
-                <Logo height={40} />
+                <Logo height={56} />
               </Link>
 
               {/* Desktop nav */}
