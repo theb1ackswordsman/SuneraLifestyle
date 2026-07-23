@@ -183,6 +183,7 @@ export async function queryRelatedProducts(
       basePrice:     Number(p.basePrice ?? 0),
       compareAtPrice: p.compareAtPrice != null ? Number(p.compareAtPrice) : undefined,
       images:        (p.images as string[] | undefined) ?? [],
+      stock:         Number(p.stock ?? 0),
       reviewSummary: { average: Number(rs?.average ?? 0), count: Number(rs?.count ?? 0) },
       isNewArrival:  Boolean(p.isNewArrival),
       isBestSeller:  Boolean(p.isBestSeller),
