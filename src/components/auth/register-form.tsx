@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput, PasswordStrengthBar } from "@/components/ui/password-input";
 import { useToast } from "@/hooks/use-toast";
 import { ROUTES } from "@/constants";
+import { Loader2 } from "lucide-react";
 
 const GoogleIcon = () => (
   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none">
@@ -20,9 +21,11 @@ const GoogleIcon = () => (
 );
 
 export function RegisterForm() {
-  const { success } = useToast();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [serverError, setServerError] = useState("");
-  const [registered, setRegistered] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resentOk, setResentOk] = useState(false);
 
   const {
     register,
@@ -48,15 +51,37 @@ export function RegisterForm() {
         setServerError(json.error ?? "Registration failed. Please try again.");
         return;
       }
-      setRegistered(true);
-      success(json.message ?? "Account created! Check your email.");
+      setRegisteredEmail(data.email);
+      toastSuccess(json.message ?? "Account created! Check your email.");
     } catch {
       setServerError("Network error. Please check your connection.");
     }
   }
 
+  async function handleResend() {
+    setResending(true);
+    setResentOk(false);
+    try {
+      const res = await fetch(ROUTES.API.AUTH.VERIFY_EMAIL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: registeredEmail }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setResentOk(true);
+      } else {
+        toastError(json.error ?? "Could not resend email. Please try again.");
+      }
+    } catch {
+      toastError("Network error. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  }
+
   /* ── Success state ── */
-  if (registered) {
+  if (registeredEmail) {
     return (
       <div className="rounded-2xl border border-border bg-card p-10 shadow-sm text-center space-y-5">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-emerald/10 text-3xl">
@@ -65,18 +90,33 @@ export function RegisterForm() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Check your email</h2>
           <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-            We sent a verification link to your email. Click it to activate your account.
+            We sent a verification link to{" "}
+            <span className="font-semibold text-foreground">{registeredEmail}</span>.
+            Click it to activate your account.
+          </p>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            If you don't see it, check your <strong>Spam</strong> or <strong>Promotions</strong> folder.
           </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Didn&apos;t receive it?{" "}
-          <button
-            onClick={() => setRegistered(false)}
-            className="font-semibold text-brand-emerald hover:underline"
-          >
-            Try again
-          </button>
-        </p>
+
+        {resentOk ? (
+          <div className="rounded-xl border border-brand-emerald/30 bg-brand-emerald/8 px-4 py-3 text-sm font-medium text-brand-emerald-dark">
+            Verification email resent! Check your inbox.
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Didn&apos;t receive it?{" "}
+            <button
+              onClick={handleResend}
+              disabled={resending}
+              className="inline-flex items-center gap-1.5 font-semibold text-brand-emerald hover:underline disabled:opacity-60"
+            >
+              {resending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {resending ? "Sending…" : "Resend verification email"}
+            </button>
+          </p>
+        )}
+
         <Link
           href={ROUTES.LOGIN}
           className="mt-2 flex w-full items-center justify-center rounded-xl border border-border bg-background py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
@@ -196,32 +236,38 @@ export function RegisterForm() {
           />
         </div>
 
-        {/* Terms */}
-        <label className="flex cursor-pointer items-start gap-2.5 pt-1 select-none">
-          <input
-            id="terms"
-            type="checkbox"
-            required
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-brand-emerald cursor-pointer"
-          />
-          <span className="text-xs text-muted-foreground leading-relaxed">
-            I agree to the{" "}
-            <Link href={ROUTES.TERMS} className="font-semibold text-brand-emerald hover:underline" target="_blank">
-              Terms & Conditions
-            </Link>{" "}
-            and{" "}
-            <Link href={ROUTES.PRIVACY_POLICY} className="font-semibold text-brand-emerald hover:underline" target="_blank">
-              Privacy Policy
-            </Link>
-          </span>
-        </label>
+        {/* Terms — registered with react-hook-form so it blocks submission if unchecked */}
+        <div className="pt-1">
+          <label className="flex cursor-pointer items-start gap-2.5 select-none">
+            <input
+              id="terms"
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-brand-emerald cursor-pointer"
+              {...register("acceptTerms")}
+            />
+            <span className="text-xs text-muted-foreground leading-relaxed">
+              I agree to the{" "}
+              <Link href={ROUTES.TERMS} className="font-semibold text-brand-emerald hover:underline" target="_blank">
+                Terms & Conditions
+              </Link>{" "}
+              and{" "}
+              <Link href={ROUTES.PRIVACY_POLICY} className="font-semibold text-brand-emerald hover:underline" target="_blank">
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+          {errors.acceptTerms && (
+            <p className="mt-1.5 text-xs text-destructive">{errors.acceptTerms.message}</p>
+          )}
+        </div>
 
         {/* Submit */}
         <button
           type="submit"
           disabled={isSubmitting}
-          className="mt-2 flex w-full items-center justify-center rounded-xl bg-[#0f0f0f] px-6 py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0f0f0f] disabled:opacity-50"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f0f0f] px-6 py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0f0f0f] disabled:opacity-50"
         >
+          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSubmitting ? "Creating account…" : "Create Account →"}
         </button>
       </form>

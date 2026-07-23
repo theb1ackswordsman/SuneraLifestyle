@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { AuthLayout } from "@/components/layout/auth-layout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
 
 type Status = "loading" | "success" | "error" | "already-verified";
@@ -17,6 +18,36 @@ function VerifyEmailContent() {
   const [status, setStatus] = useState<Status>("loading");
   const [message, setMessage] = useState("");
   const calledRef = useRef(false);
+
+  const [resendEmail, setResendEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resentOk, setResentOk] = useState(false);
+  const [resendError, setResendError] = useState("");
+
+  async function handleResend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resendEmail.trim()) return;
+    setResending(true);
+    setResendError("");
+    setResentOk(false);
+    try {
+      const res = await fetch(ROUTES.API.AUTH.VERIFY_EMAIL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resendEmail.trim().toLowerCase() }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setResentOk(true);
+      } else {
+        setResendError(json.error ?? "Failed to resend. Please try again.");
+      }
+    } catch {
+      setResendError("Network error. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  }
 
   useEffect(() => {
     if (!token) {
@@ -110,18 +141,40 @@ function VerifyEmailContent() {
       )}
 
       {status === "error" && (
-        <div className="space-y-3">
+        <div className="space-y-4 w-full max-w-xs mx-auto">
+          {resentOk ? (
+            <div className="rounded-xl border border-brand-emerald/30 bg-brand-emerald/8 px-4 py-3 text-sm font-medium text-brand-emerald-dark">
+              Verification email sent! Check your inbox and spam folder.
+            </div>
+          ) : (
+            <form onSubmit={handleResend} className="space-y-3">
+              <p className="text-sm text-muted-foreground">Enter your email to get a new verification link:</p>
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                required
+                error={resendError}
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full rounded-xl"
+                disabled={resending}
+              >
+                {resending ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
+                ) : "Resend Verification Email"}
+              </Button>
+            </form>
+          )}
           <Link href={ROUTES.LOGIN}>
             <Button variant="outline" size="lg" className="w-full rounded-xl">
               Back to Sign In
             </Button>
           </Link>
-          <p className="text-xs text-muted-foreground">
-            Need a new link?{" "}
-            <Link href={ROUTES.REGISTER} className="font-semibold text-brand-emerald hover:underline">
-              Register again
-            </Link>
-          </p>
         </div>
       )}
     </div>

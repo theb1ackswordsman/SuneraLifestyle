@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/hooks/use-toast";
 import { ROUTES } from "@/constants";
-import { ShieldCheck, KeyRound, AlertTriangle, Clock } from "lucide-react";
+import { ShieldCheck, KeyRound, AlertTriangle, Clock, Loader2, MailCheck } from "lucide-react";
 
 /* ── Lockout constants ── */
 const MAX_ATTEMPTS = 5;
@@ -69,6 +69,34 @@ export function LoginForm() {
 
   /* ── Error ── */
   const [serverError, setServerError] = useState("");
+
+  /* ── Resend verification ── */
+  const [unverifiedEmail, setUnverifiedEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resentOk, setResentOk] = useState(false);
+
+  async function handleResendVerification() {
+    if (!unverifiedEmail) return;
+    setResending(true);
+    setResentOk(false);
+    try {
+      const res = await fetch(ROUTES.API.AUTH.VERIFY_EMAIL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: unverifiedEmail }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setResentOk(true);
+      } else {
+        toastError(json.error ?? "Could not resend. Please try again.");
+      }
+    } catch {
+      toastError("Network error. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  }
 
   /* ── Lockout ── */
   const [attempts,    setAttempts]    = useState(0);
@@ -131,6 +159,8 @@ export function LoginForm() {
   async function onSubmit(data: LoginInput) {
     if (isLocked) return;
     setServerError("");
+    setUnverifiedEmail("");
+    setResentOk(false);
     try {
       const res  = await fetch(ROUTES.API.AUTH.LOGIN, {
         method: "POST",
@@ -140,8 +170,15 @@ export function LoginForm() {
       const json = await res.json();
 
       if (!res.ok) {
-        recordFailure();
-        setServerError(json.error ?? "Login failed. Please try again.");
+        const errMsg = json.error ?? "Login failed. Please try again.";
+        // Capture email for resend-verification flow
+        if (errMsg.toLowerCase().includes("verify your email")) {
+          setUnverifiedEmail(data.email);
+          setResentOk(false);
+        } else {
+          recordFailure();
+        }
+        setServerError(errMsg);
         return;
       }
 
@@ -250,8 +287,38 @@ export function LoginForm() {
         </div>
       )}
 
-      {/* Server error */}
-      {serverError && (
+      {/* Unverified email — special block with resend option */}
+      {serverError && unverifiedEmail && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <MailCheck className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">{serverError}</p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                Check your inbox and spam folder for the verification link.
+              </p>
+            </div>
+          </div>
+          {resentOk ? (
+            <p className="text-xs font-semibold text-brand-emerald">
+              Verification email resent! Check your inbox.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={resending}
+              className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900 disabled:opacity-60"
+            >
+              {resending && <Loader2 className="h-3 w-3 animate-spin" />}
+              {resending ? "Sending…" : "Resend verification email →"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Generic server error */}
+      {serverError && !unverifiedEmail && (
         <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {serverError}
         </div>

@@ -27,6 +27,9 @@ export const registerSchema = z
       .regex(/^[6-9]\d{9}$/, "Please enter a valid Indian mobile number")
       .optional()
       .or(z.literal("")),
+    acceptTerms: z.literal(true, {
+      errorMap: () => ({ message: "You must accept the Terms & Conditions to continue" }),
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
