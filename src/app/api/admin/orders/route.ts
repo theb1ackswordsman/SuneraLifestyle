@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("orderNumber total status paymentStatus paymentMethod razorpayPaymentId createdAt userId shippingAddress")
+        .select("orderNumber total status paymentStatus paymentMethod razorpayPaymentId createdAt userId shippingAddress items")
         .populate("userId", "name email")
         .lean(),
       Order.countDocuments(query),

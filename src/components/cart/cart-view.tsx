@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Minus, Plus, X, ShoppingBag, Tag, ArrowRight, Truck, Loader2, Check } from "lucide-react";
+import { Minus, Plus, X, ShoppingBag, ArrowRight, Truck, Loader2 } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,12 +28,6 @@ const SHIPPING_FEE        = 79;
 export function CartView() {
   const [lines,   setLines]   = useState<Line[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [coupon,        setCoupon]        = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
-  const [couponDiscount, setCouponDiscount] = useState(0);
-  const [couponError,   setCouponError]   = useState("");
-  const [couponLoading, setCouponLoading] = useState(false);
 
   const loadCart = useCallback(async () => {
     const items = getCartItems();
@@ -78,39 +72,10 @@ export function CartView() {
     setLines((prev) => prev.filter((l) => l._id !== id));
   }
 
-  async function applyCoupon(e: React.FormEvent) {
-    e.preventDefault();
-    const code = coupon.trim().toUpperCase();
-    if (!code) return;
-    setCouponLoading(true);
-    setCouponError("");
-    try {
-      const res = await fetch("/api/coupons/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, orderTotal: subtotal }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setAppliedCoupon(code);
-        setCouponDiscount(json.data.discount ?? 0);
-        setCouponError("");
-      } else {
-        setAppliedCoupon(null);
-        setCouponDiscount(0);
-        setCouponError(json.error ?? "Invalid or expired code.");
-      }
-    } catch {
-      setCouponError("Could not validate coupon. Try again.");
-    } finally {
-      setCouponLoading(false);
-    }
-  }
-
   const subtotal = lines.reduce((s, l) => s + l.basePrice * l.qty, 0);
   const savings  = lines.reduce((s, l) => s + (l.compareAtPrice && l.compareAtPrice > l.basePrice ? (l.compareAtPrice - l.basePrice) * l.qty : 0), 0);
   const shipping       = subtotal >= FREE_SHIP_THRESHOLD || subtotal === 0 ? 0 : SHIPPING_FEE;
-  const total          = Math.max(0, subtotal - couponDiscount) + shipping;
+  const total          = subtotal + shipping;
   const remainingFree  = Math.max(0, FREE_SHIP_THRESHOLD - subtotal);
   const freeShipPct    = Math.min(100, (subtotal / FREE_SHIP_THRESHOLD) * 100);
 
@@ -261,37 +226,9 @@ export function CartView() {
             <div className="sticky top-24 rounded-2xl border border-border bg-background p-6">
               <h2 className="text-lg font-bold">Order Summary</h2>
 
-              {/* Coupon */}
-              <form onSubmit={applyCoupon} className="mt-5">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      value={coupon}
-                      onChange={(e) => { setCoupon(e.target.value); setCouponError(""); }}
-                      placeholder="Coupon code"
-                      className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[#1a5c14] focus:ring-2 focus:ring-[#1a5c14]/20"
-                    />
-                  </div>
-                  <Button type="submit" variant="outline" size="default" className="h-10 shrink-0" disabled={couponLoading}>
-                    {couponLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
-                  </Button>
-                </div>
-                {couponError && <p className="mt-1.5 text-xs text-destructive">{couponError}</p>}
-                {appliedCoupon && (
-                  <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-[#1a5c14]">
-                    <Check className="h-3.5 w-3.5" /> Code {appliedCoupon} applied — saving {formatPrice(couponDiscount)}!
-                  </p>
-                )}
-                <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  Try <span className="font-mono font-semibold">SUNERA10</span>
-                </p>
-              </form>
-
               <div className="mt-5 space-y-2.5 border-t border-border pt-5 text-sm">
-                <PriceRow label="Subtotal"                     value={formatPrice(subtotal)} />
+                <PriceRow label="Subtotal"        value={formatPrice(subtotal)} />
                 {savings > 0 && <PriceRow label="Product savings" value={`− ${formatPrice(savings)}`} accent />}
-                {couponDiscount > 0 && <PriceRow label={`Coupon (${appliedCoupon})`} value={`− ${formatPrice(couponDiscount)}`} accent />}
                 <PriceRow label="Shipping" value={shipping === 0 ? "FREE" : formatPrice(shipping)} />
               </div>
 

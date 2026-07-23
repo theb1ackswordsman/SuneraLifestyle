@@ -393,70 +393,141 @@ function TrackingStepper({ status }: { status: string }) {
   );
 }
 
+const CANCELLABLE_STATUSES = ["pending", "confirmed", "packed"];
+
+// ─── Cancel Confirm Modal ─────────────────────────────────────────────────────
+
+function CancelModal({
+  orderNumber, onClose, onConfirm, cancelling, error,
+}: {
+  orderNumber: string;
+  onClose: () => void;
+  onConfirm: () => void;
+  cancelling: boolean;
+  error: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-sm rounded-2xl bg-background border border-border shadow-2xl p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+          </div>
+          <div>
+            <p className="font-bold text-foreground">Cancel Order?</p>
+            <p className="text-xs text-muted-foreground font-mono">{orderNumber}</p>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          This action cannot be undone. Your order will be cancelled and our team will be notified.
+        </p>
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+        )}
+        <div className="flex gap-3">
+          <button onClick={onClose} disabled={cancelling}
+            className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-50">
+            Keep Order
+          </button>
+          <button onClick={onConfirm} disabled={cancelling}
+            className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+            {cancelling && <Loader2 className="h-4 w-4 animate-spin" />}
+            {cancelling ? "Cancelling…" : "Yes, Cancel"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Order card ───────────────────────────────────────────────────────────────
 
 function OrderCard({
-  order, returnDoc, onReturnClick,
+  order, returnDoc, onReturnClick, onCancelled,
 }: {
   order: Order;
   returnDoc?: ReturnDoc;
   onReturnClick: (order: Order) => void;
+  onCancelled: (orderId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const badgeCls = STATUS_BADGE[order.status] ?? "bg-gray-100 text-gray-600 border-gray-200";
 
   const returnWindowExpiry = getReturnWindowExpiry(order);
   const withinWindow       = returnWindowExpiry ? Date.now() < returnWindowExpiry.getTime() : false;
   const canReturn          = order.status === "delivered" && withinWindow && !returnDoc;
+  const canCancel          = CANCELLABLE_STATUSES.includes(order.status);
+
+  async function handleCancel() {
+    setCancelling(true);
+    setCancelError("");
+    try {
+      const res  = await fetch(`/api/orders/${order._id}/cancel`, { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        setShowCancelModal(false);
+        onCancelled(order._id);
+      } else {
+        setCancelError(json.error ?? "Failed to cancel order.");
+      }
+    } catch {
+      setCancelError("Something went wrong. Please try again.");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   return (
+    <>
     <div className="rounded-2xl border border-border bg-background overflow-hidden transition-shadow hover:shadow-sm">
-      {/* Header row */}
-      <button className="w-full text-left p-5 flex items-start gap-4" onClick={() => setOpen((p) => !p)}>
-        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
-          {order.items[0]?.image
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={order.items[0].image} alt={order.items[0].name} className="h-full w-full object-cover" />
-            : <div className="flex h-full w-full items-center justify-center"><Package className="h-6 w-6 text-muted-foreground/30" /></div>
-          }
+      {/* Header — order number + status + toggle */}
+      <button className="w-full text-left px-5 pt-4 pb-3 flex items-center justify-between gap-2" onClick={() => setOpen((p) => !p)}>
+        <div>
+          <p className="font-mono text-sm font-bold text-foreground">{order.orderNumber}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{fmtDate(order.createdAt)} · {formatPrice(order.total)}</p>
         </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 flex-wrap">
-            <div>
-              <p className="font-mono text-sm font-bold text-foreground">{order.orderNumber}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{fmtDate(order.createdAt)}</p>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase", badgeCls)}>
-                {order.status}
-              </span>
-              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
-            </div>
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>{order.items.length} item{order.items.length !== 1 ? "s" : ""}</span>
-            <span className="font-semibold text-foreground">{formatPrice(order.total)}</span>
-            {order.estimatedDelivery && order.status !== "delivered" && order.status !== "cancelled" && (
-              <span className="flex items-center gap-1 text-[#1a5c14]">
-                <Clock className="h-3 w-3" /> Est. {fmtDate(order.estimatedDelivery)}
-              </span>
-            )}
-          </div>
-
-          {/* Return status chip */}
-          {returnDoc && (
-            <div className="mt-2">
-              <Link href={`/account/returns/${returnDoc._id}`} onClick={(e) => e.stopPropagation()}
-                className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold", RETURN_STATUS_BADGE[returnDoc.status] ?? "bg-gray-100 text-gray-600")}>
-                <RotateCcw className="h-3 w-3" />
-                {RETURN_STATUS_LABEL[returnDoc.status] ?? returnDoc.status}
-              </Link>
-            </div>
-          )}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase", badgeCls)}>
+            {order.status}
+          </span>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
         </div>
       </button>
+
+      {/* Items list — always visible, one row per item */}
+      <div className="border-t border-border divide-y divide-border">
+        {order.items.map((item, idx) => (
+          <Link key={idx} href={`/product/${item.slug}`}
+            className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40 transition-colors">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+              {item.image
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                : <div className="flex h-full w-full items-center justify-center"><ShoppingBag className="h-4 w-4 text-muted-foreground/30" /></div>
+              }
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold line-clamp-1">{item.name}</p>
+              <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+            </div>
+            <p className="text-sm font-bold shrink-0">{formatPrice(item.price * item.quantity)}</p>
+          </Link>
+        ))}
+      </div>
+
+      {/* Return status chip */}
+      {returnDoc && (
+        <div className="px-5 pb-3">
+          <Link href={`/account/returns/${returnDoc._id}`}
+            className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold", RETURN_STATUS_BADGE[returnDoc.status] ?? "bg-gray-100 text-gray-600")}>
+            <RotateCcw className="h-3 w-3" />
+            {RETURN_STATUS_LABEL[returnDoc.status] ?? returnDoc.status}
+          </Link>
+        </div>
+      )}
 
       {/* Expandable detail */}
       {open && (
@@ -482,6 +553,25 @@ function OrderCard({
                   Track <ExternalLink className="h-3 w-3" />
                 </a>
               )}
+            </div>
+          )}
+
+          {/* Cancel section — for pre-shipment orders */}
+          {canCancel && (
+            <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 flex items-start gap-3">
+              <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground">Need to cancel?</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  You can cancel this order as it hasn&apos;t been shipped yet.
+                </p>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowCancelModal(true); }}
+                className="shrink-0 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+              >
+                Cancel Order
+              </button>
             </div>
           )}
 
@@ -571,33 +661,6 @@ function OrderCard({
             </div>
           )}
 
-          {/* Items */}
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Items</p>
-            <div className="space-y-3">
-              {order.items.map((item) => (
-                <Link key={item._id} href={`/product/${item.slug}`}
-                  className="flex items-center gap-3 rounded-xl border border-border p-3 hover:bg-muted/40 transition-colors">
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-                    {item.image
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-                      : <div className="flex h-full w-full items-center justify-center"><ShoppingBag className="h-4 w-4 text-muted-foreground/30" /></div>
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold line-clamp-1">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">Qty: {item.quantity} · {formatPrice(item.price)} each</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-bold">{formatPrice(item.price * item.quantity)}</p>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ml-auto mt-1" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
           {/* Price breakdown */}
           <div className="rounded-xl bg-muted/40 p-4 space-y-2 text-sm">
             <div className="flex justify-between text-muted-foreground">
@@ -653,6 +716,16 @@ function OrderCard({
         </div>
       )}
     </div>
+    {showCancelModal && (
+      <CancelModal
+        orderNumber={order.orderNumber}
+        onClose={() => { setShowCancelModal(false); setCancelError(""); }}
+        onConfirm={handleCancel}
+        cancelling={cancelling}
+        error={cancelError}
+      />
+    )}
+    </>
   );
 }
 
@@ -683,6 +756,23 @@ export default function OrdersContent() {
 
   function handleReturnSuccess(returnDoc: ReturnDoc) {
     setReturns((p) => [...p, returnDoc]);
+  }
+
+  function handleOrderCancelled(orderId: string) {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o._id === orderId
+          ? {
+              ...o,
+              status: "cancelled",
+              timeline: [
+                ...o.timeline,
+                { status: "cancelled", message: "Cancelled by user.", timestamp: new Date().toISOString() },
+              ],
+            }
+          : o
+      )
+    );
   }
 
   return (
@@ -751,6 +841,7 @@ export default function OrdersContent() {
                 order={o}
                 returnDoc={returnsByOrderId[o._id]}
                 onReturnClick={setReturnModal}
+                onCancelled={handleOrderCancelled}
               />
             ))}
           </div>
