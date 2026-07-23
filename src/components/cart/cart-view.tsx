@@ -31,6 +31,7 @@ export function CartView() {
 
   const [coupon,        setCoupon]        = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponError,   setCouponError]   = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
 
@@ -77,23 +78,37 @@ export function CartView() {
     setLines((prev) => prev.filter((l) => l._id !== id));
   }
 
-  function applyCoupon(e: React.FormEvent) {
+  async function applyCoupon(e: React.FormEvent) {
     e.preventDefault();
     const code = coupon.trim().toUpperCase();
+    if (!code) return;
     setCouponLoading(true);
-    setTimeout(() => {
-      if (code === "SUNERA10") {
-        setAppliedCoupon(code); setCouponError("");
-      } else if (code) {
-        setAppliedCoupon(null); setCouponError("Invalid or expired code.");
+    setCouponError("");
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, orderTotal: subtotal }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setAppliedCoupon(code);
+        setCouponDiscount(json.data.discount ?? 0);
+        setCouponError("");
+      } else {
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        setCouponError(json.error ?? "Invalid or expired code.");
       }
+    } catch {
+      setCouponError("Could not validate coupon. Try again.");
+    } finally {
       setCouponLoading(false);
-    }, 500);
+    }
   }
 
-  const subtotal       = lines.reduce((s, l) => s + l.basePrice * l.qty, 0);
-  const savings        = lines.reduce((s, l) => s + (l.compareAtPrice && l.compareAtPrice > l.basePrice ? (l.compareAtPrice - l.basePrice) * l.qty : 0), 0);
-  const couponDiscount = appliedCoupon ? Math.round(subtotal * 0.10) : 0;
+  const subtotal = lines.reduce((s, l) => s + l.basePrice * l.qty, 0);
+  const savings  = lines.reduce((s, l) => s + (l.compareAtPrice && l.compareAtPrice > l.basePrice ? (l.compareAtPrice - l.basePrice) * l.qty : 0), 0);
   const shipping       = subtotal >= FREE_SHIP_THRESHOLD || subtotal === 0 ? 0 : SHIPPING_FEE;
   const total          = Math.max(0, subtotal - couponDiscount) + shipping;
   const remainingFree  = Math.max(0, FREE_SHIP_THRESHOLD - subtotal);
@@ -265,7 +280,7 @@ export function CartView() {
                 {couponError && <p className="mt-1.5 text-xs text-destructive">{couponError}</p>}
                 {appliedCoupon && (
                   <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-[#1a5c14]">
-                    <Check className="h-3.5 w-3.5" /> Code {appliedCoupon} applied — 10% off!
+                    <Check className="h-3.5 w-3.5" /> Code {appliedCoupon} applied — saving {formatPrice(couponDiscount)}!
                   </p>
                 )}
                 <p className="mt-1.5 text-[11px] text-muted-foreground">

@@ -703,33 +703,7 @@ export function CheckoutContent() {
               <div className="sticky top-24 rounded-2xl border border-border bg-background p-5 sm:p-6">
                 <h2 className="text-base font-bold mb-4">Order Summary</h2>
 
-                {cartLoading ? (
-                  <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                ) : (
-                  <ul className="divide-y divide-border -mx-1 mb-4">
-                    {lines.map((l) => (
-                      <li key={l._id} className="flex gap-3 py-3 px-1">
-                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
-                          {l.images[0]
-                            // eslint-disable-next-line @next/next/no-img-element
-                            ? <img src={l.images[0]} alt={l.name} className="h-full w-full object-cover" />
-                            : <div className="flex h-full w-full items-center justify-center"><ShoppingBag className="h-5 w-5 text-muted-foreground/30" /></div>
-                          }
-                          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-background">
-                            {l.qty}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold leading-snug line-clamp-2">{l.name}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{formatPrice(l.basePrice)} each</p>
-                        </div>
-                        <p className="text-sm font-bold shrink-0">{formatPrice(l.basePrice * l.qty)}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {/* Coupon */}
+                {/* Coupon — always at top */}
                 <div className="mb-4">
                   {applied ? (
                     <div className="flex items-center justify-between gap-2 rounded-xl border-2 border-dashed border-[#1a5c14]/40 bg-[#1a5c14]/5 px-3.5 py-3">
@@ -755,6 +729,33 @@ export function CheckoutContent() {
                     </button>
                   )}
                 </div>
+
+                {/* Cart items */}
+                {cartLoading ? (
+                  <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                ) : (
+                  <ul className="divide-y divide-border -mx-1 mb-4">
+                    {lines.map((l) => (
+                      <li key={l._id} className="flex gap-3 py-3 px-1">
+                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                          {l.images[0]
+                            // eslint-disable-next-line @next/next/no-img-element
+                            ? <img src={l.images[0]} alt={l.name} className="h-full w-full object-cover" />
+                            : <div className="flex h-full w-full items-center justify-center"><ShoppingBag className="h-5 w-5 text-muted-foreground/30" /></div>
+                          }
+                          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-background">
+                            {l.qty}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold leading-snug line-clamp-2">{l.name}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{formatPrice(l.basePrice)} each</p>
+                        </div>
+                        <p className="text-sm font-bold shrink-0">{formatPrice(l.basePrice * l.qty)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 {/* Price rows */}
                 <div className="space-y-2 text-sm border-t border-border pt-4">
