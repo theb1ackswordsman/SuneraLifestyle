@@ -42,9 +42,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!isAdmin(req)) return forbidden();
     await connectDB();
     const { id } = await params;
-    const { status } = await req.json() as { status: string };
+    const body = await req.json() as { status?: string; paymentStatus?: string };
 
-    if (!Object.values(ORDER_STATUS).includes(status as never)) {
+    // Payment-status-only update (Mark as Paid / manual override)
+    if (body.paymentStatus && !body.status) {
+      const VALID = ["paid", "pending", "failed", "refunded", "partially_refunded"];
+      if (!VALID.includes(body.paymentStatus)) return badRequest("Invalid payment status.");
+      const order = await Order.findByIdAndUpdate(
+        id,
+        { $set: { paymentStatus: body.paymentStatus } },
+        { new: true }
+      );
+      if (!order) return notFound("Order not found.");
+      return ok({ order }, "Payment status updated.");
+    }
+
+    const { status } = body;
+    if (!status || !Object.values(ORDER_STATUS).includes(status as never)) {
       return badRequest("Invalid order status.");
     }
 

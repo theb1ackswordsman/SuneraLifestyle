@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ShoppingBag, ChevronLeft, ChevronRight, Zap, Truck } from "lucide-react";
+import { ShoppingBag, ChevronLeft, ChevronRight, Zap, Truck, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORDER_STATUS } from "@/constants";
 
@@ -69,6 +69,7 @@ export default function AdminOrdersPage() {
   const [payFilter, setPayFilter]   = useState("");
   const [loading, setLoading]       = useState(true);
   const [updatingId, setUpdating]   = useState<string | null>(null);
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -99,6 +100,18 @@ export default function AdminOrdersPage() {
       body: JSON.stringify({ status }),
     });
     setUpdating(null);
+    load();
+  }
+
+  async function markAsPaid(id: string) {
+    if (!confirm("Mark this order as Paid?")) return;
+    setMarkingPaid(id);
+    await fetch(`/api/admin/orders/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentStatus: "paid" }),
+    });
+    setMarkingPaid(null);
     load();
   }
 
@@ -181,6 +194,16 @@ export default function AdminOrdersPage() {
                   ))}
                 </select>
               </div>
+              {o.paymentStatus !== "paid" && (
+                <button
+                  onClick={() => markAsPaid(o._id)}
+                  disabled={markingPaid === o._id}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-green-50 border border-green-200 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                >
+                  <BadgeCheck className="h-3.5 w-3.5" />
+                  {markingPaid === o._id ? "Saving…" : "Mark as Paid"}
+                </button>
+              )}
             </div>
           ))
         )}
@@ -192,7 +215,7 @@ export default function AdminOrdersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                {["Order", "Customer", "Total", "Payment", "Order Status", "Update Status"].map((h) => (
+                {["Order", "Customer", "Total", "Payment", "Order Status", "Update Status", ""].map((h) => (
                   <th key={h} className="px-4 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -201,13 +224,13 @@ export default function AdminOrdersPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 6 }).map((__, j) => (
+                    {Array.from({ length: 7 }).map((__, j) => (
                       <td key={j} className="px-4 py-4"><div className="h-4 w-full animate-pulse rounded bg-gray-100" /></td>
                     ))}
                   </tr>
                 ))
               ) : orders.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">No orders found.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">No orders found.</td></tr>
               ) : (
                 orders.map((o) => (
                   <tr key={o._id} className="hover:bg-gray-50/50 transition-colors">
@@ -237,6 +260,18 @@ export default function AdminOrdersPage() {
                           <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
                         ))}
                       </select>
+                    </td>
+                    <td className="px-4 py-4">
+                      {o.paymentStatus !== "paid" && (
+                        <button
+                          onClick={() => markAsPaid(o._id)}
+                          disabled={markingPaid === o._id}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                        >
+                          <BadgeCheck className="h-3.5 w-3.5" />
+                          {markingPaid === o._id ? "Saving…" : "Mark as Paid"}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
