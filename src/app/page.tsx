@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const [featuredSections, tabbedSets] = await Promise.all([
-    queryFeaturedSections(10).catch(() => []),
+    queryFeaturedSections(5).catch(() => []),
     queryTabbedProducts(5).catch(() => ({ newArrivals: [], bestSellers: [], topRated: [] })),
   ]);
 
