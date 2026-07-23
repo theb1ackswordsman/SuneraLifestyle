@@ -40,7 +40,9 @@ async function getFooterCategories(): Promise<FooterCat[]> {
 }
 
 const COMPANY_LINKS = [
-  { label: "About Us", href: "/about" },
+  { label: "About Us",    href: "/about" },
+  { label: "Blogs",       href: "/blogs" },
+  { label: "Collections", href: "/collections" },
 ];
 
 const SUPPORT_LINKS = [

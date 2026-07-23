@@ -582,7 +582,7 @@ export function ReviewSection({ productId, initialSummary }: ReviewSectionProps)
       <div className="rounded-2xl border border-border bg-background p-6">
         <div className="flex flex-wrap items-start gap-6">
           {/* Big average */}
-          <div className="flex flex-col items-center gap-1 text-center min-w-[80px]">
+          <div className="flex flex-col items-center gap-1 text-center min-w-20">
             <p className="text-5xl font-black leading-none">{summary.average.toFixed(1)}</p>
             <StarDisplay rating={summary.average} size="lg" />
             <p className="mt-1 text-xs text-muted-foreground">
@@ -591,7 +591,7 @@ export function ReviewSection({ productId, initialSummary }: ReviewSectionProps)
           </div>
 
           {/* Distribution bars */}
-          <div className="flex-1 min-w-[180px] space-y-2">
+          <div className="flex-1 min-w-45 space-y-2">
             {[5, 4, 3, 2, 1].map((star) => {
               const pct = getDistPct(star);
               const cnt = getDistCount(star);

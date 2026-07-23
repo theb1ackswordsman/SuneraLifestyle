@@ -35,7 +35,7 @@ export default function CollectionsPage() {
             <Link
               key={c.slug}
               href={c.href}
-              className="group relative flex min-h-[280px] flex-col justify-end overflow-hidden rounded-2xl"
+              className="group relative flex min-h-70 flex-col justify-end overflow-hidden rounded-2xl"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

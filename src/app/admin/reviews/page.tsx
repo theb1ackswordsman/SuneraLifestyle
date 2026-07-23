@@ -349,7 +349,7 @@ export default function AdminReviewsPage() {
       {/* ── Filter bar ── */}
       <div className="flex flex-wrap gap-3 items-center">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
+        <div className="relative flex-1 min-w-50 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
           <input
             type="text"

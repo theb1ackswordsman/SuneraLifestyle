@@ -608,16 +608,6 @@ function SearchOverlay({ visible, onClose }: { visible: boolean; onClose: () => 
                 </motion.div>
               )}
 
-              {!hasQuery && (
-                <p className="mt-4 text-center text-sm text-white/60">
-                  <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 font-mono text-xs text-white">Esc</kbd>
-                  {" to close · "}
-                  <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 font-mono text-xs text-white">↑ ↓</kbd>
-                  {" navigate · "}
-                  <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 font-mono text-xs text-white">Enter</kbd>
-                  {" select"}
-                </p>
-              )}
 
             </div>
           </div>

@@ -9,6 +9,7 @@ export interface FeaturedProduct {
   basePrice: number;
   compareAtPrice?: number;
   images: string[];
+  stock: number;
   reviewSummary: { average: number; count: number };
   isNewArrival: boolean;
   isBestSeller: boolean;
@@ -22,7 +23,7 @@ export interface FeaturedSection {
   products: FeaturedProduct[];
 }
 
-const SELECT = "name slug basePrice compareAtPrice images reviewSummary.average reviewSummary.count isNewArrival isBestSeller category";
+const SELECT = "name slug basePrice compareAtPrice images stock reviewSummary.average reviewSummary.count isNewArrival isBestSeller category";
 
 function normalizeProduct(p: FeaturedProduct): FeaturedProduct {
   const cat = p.category as unknown as { _id: unknown; name: string; slug: string } | null;

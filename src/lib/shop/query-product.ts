@@ -47,6 +47,7 @@ export interface RelatedProduct {
   basePrice: number;
   compareAtPrice?: number;
   images: string[];
+  stock: number;
   reviewSummary: { average: number; count: number };
   isNewArrival: boolean;
   isBestSeller: boolean;
@@ -146,7 +147,7 @@ export async function queryRelatedProducts(
   })
     .sort({ salesCount: -1, isFeatured: -1 })
     .limit(limit)
-    .select("name slug basePrice compareAtPrice images reviewSummary.average reviewSummary.count isNewArrival isBestSeller")
+    .select("name slug basePrice compareAtPrice images stock reviewSummary.average reviewSummary.count isNewArrival isBestSeller")
     .lean<Record<string, unknown>[]>();
 
   // If not enough, broaden to sibling categories (same parent)
@@ -166,7 +167,7 @@ export async function queryRelatedProducts(
         })
           .sort({ salesCount: -1 })
           .limit(limit - products.length)
-          .select("name slug basePrice compareAtPrice images reviewSummary.average reviewSummary.count isNewArrival isBestSeller")
+          .select("name slug basePrice compareAtPrice images stock reviewSummary.average reviewSummary.count isNewArrival isBestSeller")
           .lean<Record<string, unknown>[]>();
         products = [...products, ...extra];
       }

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Star, Heart, ShoppingBag, Check, Truck, RefreshCw, ShieldCheck,
-  Minus, Plus, ChevronRight,
+  Minus, Plus, ChevronRight, BellRing,
 } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   const badge = deriveBadge(product);
   const rating = product.reviewSummary.average;
   const reviewCount = product.reviewSummary.count;
+  const outOfStock = product.stock <= 0;
 
   const router = useRouter();
   const { requireAuth } = useRequireAuth();
@@ -109,7 +110,18 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={gallery[activeImg]} alt={product.name} className="h-full w-full object-cover" />
               )}
-              {badge && (
+
+              {/* Out of Stock overlay ribbon */}
+              {outOfStock && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/40" />
+                  <span className="relative z-10 rotate-[-20deg] rounded bg-red-600 px-6 py-2 text-sm font-black uppercase tracking-widest text-white shadow-xl">
+                    Out of Stock
+                  </span>
+                </div>
+              )}
+
+              {badge && !outOfStock && (
                 <div className="absolute left-4 top-4">
                   <Badge variant={badge === "sale" ? "sale" : badge === "new" ? "new" : "bestseller"}>
                     {badge === "new" ? "New" : badge === "bestseller" ? "Bestseller" : "Sale"}
@@ -206,47 +218,72 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
             )}
 
             {/* Quantity + actions */}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <div className="flex items-center rounded-xl border border-border">
-                <button
-                  onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  className="flex h-11 w-11 items-center justify-center rounded-l-xl transition-colors hover:bg-muted"
-                  aria-label="Decrease quantity"
+            {outOfStock ? (
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center gap-3 rounded-2xl border-2 border-red-200 bg-red-50 px-5 py-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100">
+                    <BellRing className="h-4 w-4 text-red-600" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-red-700">Out of Stock</p>
+                    <p className="text-xs text-red-500 mt-0.5">We will inform you when this product is back in stock.</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleWishlist}
+                  className="w-full border-2"
                 >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="w-10 text-center text-sm font-bold">{qty}</span>
-                <button
-                  onClick={() => setQty((q) => q + 1)}
-                  className="flex h-11 w-11 items-center justify-center rounded-r-xl transition-colors hover:bg-muted"
-                  aria-label="Increase quantity"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                  <Heart className={cn("h-4 w-4 mr-2", wishlisted && "fill-rose-500 text-rose-500")} />
+                  {wishlisted ? "Saved to Wishlist" : "Save to Wishlist"}
+                </Button>
               </div>
+            ) : (
+              <>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <div className="flex items-center rounded-xl border border-border">
+                    <button
+                      onClick={() => setQty((q) => Math.max(1, q - 1))}
+                      className="flex h-11 w-11 items-center justify-center rounded-l-xl transition-colors hover:bg-muted"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="w-10 text-center text-sm font-bold">{qty}</span>
+                    <button
+                      onClick={() => setQty((q) => q + 1)}
+                      className="flex h-11 w-11 items-center justify-center rounded-r-xl transition-colors hover:bg-muted"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
 
-              <Button variant="primary" size="lg" onClick={addToCart} className="flex-1 min-w-45">
-                {added ? (
-                  <><Check className="h-4 w-4" /> Added to Cart</>
-                ) : (
-                  <><ShoppingBag className="h-4 w-4" /> Add to Cart</>
-                )}
-              </Button>
+                  <Button variant="primary" size="lg" onClick={addToCart} className="flex-1 min-w-45">
+                    {added ? (
+                      <><Check className="h-4 w-4" /> Added to Cart</>
+                    ) : (
+                      <><ShoppingBag className="h-4 w-4" /> Add to Cart</>
+                    )}
+                  </Button>
 
-              <Button
-                variant="outline"
-                size="icon-lg"
-                onClick={handleWishlist}
-                aria-label="Add to wishlist"
-                className="h-12 w-12 shrink-0"
-              >
-                <Heart className={cn("h-5 w-5", wishlisted && "fill-rose-500 text-rose-500")} />
-              </Button>
-            </div>
+                  <Button
+                    variant="outline"
+                    size="icon-lg"
+                    onClick={handleWishlist}
+                    aria-label="Add to wishlist"
+                    className="h-12 w-12 shrink-0"
+                  >
+                    <Heart className={cn("h-5 w-5", wishlisted && "fill-rose-500 text-rose-500")} />
+                  </Button>
+                </div>
 
-            <Button variant="default" size="lg" className="mt-3 w-full" onClick={handleBuyNow}>
-              Buy It Now
-            </Button>
+                <Button variant="default" size="lg" className="mt-3 w-full" onClick={handleBuyNow}>
+                  Buy It Now
+                </Button>
+              </>
+            )}
 
             {/* Trust row */}
             <div className="mt-7 grid grid-cols-3 gap-3 border-t border-border pt-6">
@@ -333,6 +370,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
                   reviewCount={p.reviewSummary.count}
                   badge={deriveBadge(p)}
                   image={p.images[0]}
+                  stock={p.stock}
                 />
               ))}
             </div>

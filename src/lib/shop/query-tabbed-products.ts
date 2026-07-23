@@ -8,6 +8,7 @@ export interface TabbedProduct {
   basePrice: number;
   compareAtPrice?: number;
   images: string[];
+  stock: number;
   reviewSummary: { average: number; count: number };
   isNewArrival: boolean;
   isBestSeller: boolean;
@@ -21,7 +22,7 @@ export interface TabbedProductSets {
 }
 
 const SELECT =
-  "name slug basePrice compareAtPrice images reviewSummary.average reviewSummary.count isNewArrival isBestSeller isFeatured";
+  "name slug basePrice compareAtPrice images stock reviewSummary.average reviewSummary.count isNewArrival isBestSeller isFeatured";
 
 function normalize(p: TabbedProduct): TabbedProduct {
   return {

@@ -916,7 +916,7 @@ export function SearchContent({
         {q && (
           <>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-gray-700 font-semibold truncate max-w-[200px]">&ldquo;{q}&rdquo;</span>
+            <span className="text-gray-700 font-semibold truncate max-w-50">&ldquo;{q}&rdquo;</span>
           </>
         )}
       </nav>

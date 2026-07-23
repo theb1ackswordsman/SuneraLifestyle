@@ -157,6 +157,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                       reviewCount={product.reviewSummary.count}
                       badge={getBadge(product)}
                       image={product.images[0]}
+                      stock={product.stock}
                       gradient={CAT_GRADIENTS[product.category?.slug ?? ""] ?? "from-slate-600 to-slate-900"}
                     />
                   ))}

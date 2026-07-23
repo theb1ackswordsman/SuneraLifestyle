@@ -4,6 +4,7 @@ import {
   Package, Heart, MapPin, Settings, ShieldCheck,
   MessageSquare, HeadphonesIcon, ChevronRight, User, RotateCcw,
 } from "lucide-react";
+import { SignOutButton } from "./_sign-out-button";
 
 const ACCOUNT_LINKS = [
   {
@@ -105,12 +106,7 @@ export default function AccountPage() {
 
         {/* Sign out */}
         <div className="mt-10 border-t border-border pt-8">
-          <Link
-            href="/login"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-red-500 hover:text-red-600 hover:underline"
-          >
-            Sign Out
-          </Link>
+          <SignOutButton />
         </div>
       </div>
     </ShopLayout>

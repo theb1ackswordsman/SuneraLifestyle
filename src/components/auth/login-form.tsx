@@ -53,6 +53,7 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl  = searchParams.get("callbackUrl") ?? ROUTES.ACCOUNT;
   const authMessage  = searchParams.get("message");
+  const signedOut    = searchParams.get("signedOut") === "true";
   const { success, error: toastError } = useToast();
 
   // Show Google OAuth errors passed as ?error= query param
@@ -241,8 +242,15 @@ export function LoginForm() {
         Sign in with your email or continue with Google.
       </p>
 
+      {/* Signed-out success banner */}
+      {signedOut && (
+        <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          ✓ You have been signed out successfully.
+        </div>
+      )}
+
       {/* Auth redirect message (e.g. "Please sign in first") */}
-      {authMessage && (
+      {authMessage && !signedOut && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
           {authMessage}
         </div>

@@ -25,6 +25,7 @@ export interface ProductListItem {
   basePrice: number;
   compareAtPrice?: number;
   images: string[];
+  stock: number;
   reviewSummary: { average: number; count: number };
   isNewArrival: boolean;
   isBestSeller: boolean;
@@ -118,6 +119,7 @@ export async function queryProducts(opts: ProductQuery = {}): Promise<ProductQue
             $project: {
               name: 1, slug: 1, basePrice: 1, compareAtPrice: 1,
               images: { $slice: ["$images", 1] },
+              stock: 1,
               "reviewSummary.average": 1,
               "reviewSummary.count": 1,
               isNewArrival: 1, isBestSeller: 1, isFeatured: 1,

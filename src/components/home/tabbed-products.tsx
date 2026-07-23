@@ -105,6 +105,7 @@ export function TabbedProducts({ sets }: Props) {
                 reviewCount={p.reviewSummary.count}
                 badge={getBadge(p)}
                 image={p.images[0]}
+                stock={p.stock}
               />
             ))
           )}

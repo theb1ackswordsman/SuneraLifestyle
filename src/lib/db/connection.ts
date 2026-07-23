@@ -63,12 +63,16 @@ export async function disconnectDB(): Promise<void> {
   }
 }
 
-mongoose.connection.on("disconnected", () => {
-  console.warn("[MongoDB] Disconnected");
-  cache.conn = null;
-  cache.promise = null;
-});
+// Only register connection events in Node.js (server). In the browser
+// mongoose is bundled but mongoose.connection is undefined, causing a crash.
+if (typeof window === "undefined" && mongoose.connection) {
+  mongoose.connection.on("disconnected", () => {
+    console.warn("[MongoDB] Disconnected");
+    cache.conn = null;
+    cache.promise = null;
+  });
 
-mongoose.connection.on("error", (err) => {
-  console.error("[MongoDB] Error:", err.message);
-});
+  mongoose.connection.on("error", (err: Error) => {
+    console.error("[MongoDB] Error:", err.message);
+  });
+}

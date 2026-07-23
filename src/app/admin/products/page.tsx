@@ -19,6 +19,7 @@ interface Product {
   isFeatured: boolean;
   isBestSeller: boolean;
   isNewArrival: boolean;
+  images?: string[];
   category?: { name: string; slug: string };
   createdAt: string;
 }
@@ -115,9 +116,17 @@ export default function AdminProductsPage() {
           products.map((p) => (
             <div key={p._id} className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">{p.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{p.category?.name ?? "No category"}</p>
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {p.images?.[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.images[0]} alt={p.name} className="h-12 w-12 shrink-0 rounded-xl object-cover border border-gray-100" />
+                  ) : (
+                    <div className="h-12 w-12 shrink-0 rounded-xl border border-dashed border-gray-200 bg-gray-50" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">{p.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{p.category?.name ?? "No category"}</p>
+                  </div>
                 </div>
                 <span className={cn("shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase", p.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
                   {p.isActive ? "Active" : "Inactive"}
@@ -178,6 +187,7 @@ export default function AdminProductsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left">
+                <th className="px-4 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider w-14">Image</th>
                 <th className="px-4 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Product</th>
                 <th className="px-4 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Category</th>
                 <th className="px-4 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider">Price</th>
@@ -192,7 +202,7 @@ export default function AdminProductsPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 8 }).map((__, j) => (
+                    {Array.from({ length: 9 }).map((__, j) => (
                       <td key={j} className="px-4 py-4">
                         <div className="h-4 w-full animate-pulse rounded bg-gray-100" />
                       </td>
@@ -201,7 +211,7 @@ export default function AdminProductsPage() {
                 ))
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
                     No products found.{" "}
                     <Link href="/admin/products/new" className="text-[#1a5c14] font-semibold hover:underline">
                       Add your first product
@@ -211,6 +221,20 @@ export default function AdminProductsPage() {
               ) : (
                 products.map((p) => (
                   <tr key={p._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      {p.images?.[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.images[0]}
+                          alt={p.name}
+                          className="h-10 w-10 rounded-lg object-cover border border-gray-100 bg-gray-50"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center text-gray-300 text-[10px]">
+                          N/A
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-4">
                       <div>
                         <p className="font-semibold text-gray-900 line-clamp-1">{p.name}</p>

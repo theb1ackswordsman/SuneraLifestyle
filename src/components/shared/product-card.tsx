@@ -21,6 +21,7 @@ interface ProductCardProps {
   badge?: "new" | "sale" | "bestseller" | "featured";
   gradient?: string;
   image?: string;
+  stock?: number;
   className?: string;
   onAddToCart?: (id: string) => void;
   onWishlist?: (id: string) => void;
@@ -44,10 +45,12 @@ export function ProductCard({
   badge,
   gradient = "from-[#1a5c14] to-[#071f04]",
   image,
+  stock,
   className,
   onAddToCart,
   onWishlist,
 }: ProductCardProps) {
+  const outOfStock = stock !== undefined && stock <= 0;
   const [wishlisted,  setWishlisted]  = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const { requireAuth } = useRequireAuth();
@@ -110,9 +113,19 @@ export function ProductCard({
             </div>
           )}
 
+          {/* Out of Stock ribbon */}
+          {outOfStock && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/40" />
+              <span className="relative z-10 rotate-[-20deg] rounded-sm bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-white shadow-lg">
+                Out of Stock
+              </span>
+            </div>
+          )}
+
           {/* Top overlays */}
           <div className="absolute inset-x-3 top-3 flex items-start justify-between">
-            {badge && (
+            {badge && !outOfStock && (
               <Badge variant={BADGE_CONFIG[badge].variant} className="text-[11px]">
                 {BADGE_CONFIG[badge].label}
                 {discountPercent && badge === "sale" ? ` −${discountPercent}%` : ""}
@@ -136,20 +149,22 @@ export function ProductCard({
             </button>
           </div>
 
-          {/* Add to Cart — always visible on mobile, hover-reveal on desktop */}
-          <div className="absolute inset-x-3 bottom-3 translate-y-0 opacity-100 transition-all duration-300 sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
-            <button
-              onClick={handleAddToCart}
-              className={cn(
-                "w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200",
-                addedToCart
-                  ? "bg-brand-emerald text-white"
-                  : "bg-background/95 backdrop-blur-sm text-foreground hover:bg-brand-emerald hover:text-white"
-              )}
-            >
-              {addedToCart ? "Added!" : "Add to Cart"}
-            </button>
-          </div>
+          {/* Add to Cart — hidden when out of stock */}
+          {!outOfStock && (
+            <div className="absolute inset-x-3 bottom-3 translate-y-0 opacity-100 transition-all duration-300 sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
+              <button
+                onClick={handleAddToCart}
+                className={cn(
+                  "w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200",
+                  addedToCart
+                    ? "bg-brand-emerald text-white"
+                    : "bg-background/95 backdrop-blur-sm text-foreground hover:bg-brand-emerald hover:text-white"
+                )}
+              >
+                {addedToCart ? "Added!" : "Add to Cart"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Info */}
