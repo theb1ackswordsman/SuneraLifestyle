@@ -115,7 +115,7 @@ export function CategoryBanners() {
 
         {/* Two small top-right */}
         {smalls.map((b) => (
-          <BannerCard key={b.href} b={b} className="min-h-45 sm:min-h-50" />
+          <BannerCard key={b.heading} b={b} className="min-h-45 sm:min-h-50" />
         ))}
 
         {/* Wide bottom-right — spans 2 cols */}
