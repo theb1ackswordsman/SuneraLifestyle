@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, ShoppingBag, Heart, User, Menu, X,
   ChevronDown, ChevronRight, ArrowRight, LogOut, Package, MapPin, Settings,
-  Mail, Phone, RotateCcw,
+  Mail, Phone, RotateCcw, Loader2, Tag, TrendingUp, Clock, Trash2,
 } from "lucide-react";
 import { useScrolled } from "@/hooks/use-scroll";
 import { useCartCount } from "@/hooks/use-cart-count";
@@ -285,43 +285,340 @@ function WhatsAppIcon({ className }: { className?: string }) {
 const WA_LINK = "https://wa.me/919135564607";
 
 // ─── Search Overlay ───────────────────────────────────────────────────────────
+interface SearchResult {
+  _id: string; name: string; slug: string;
+  basePrice: number; compareAtPrice?: number;
+  images: string[];
+  category?: { name: string; slug: string };
+}
+
+function highlight(text: string, q: string): React.ReactNode {
+  if (!q.trim()) return text;
+  const safe  = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${safe})`, "gi"));
+  return parts.map((p, i) =>
+    new RegExp(safe, "i").test(p)
+      ? <mark key={i} className="bg-amber-100 text-amber-900 not-italic font-semibold">{p}</mark>
+      : p
+  );
+}
+
 function SearchOverlay({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const router   = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [query,             setQuery]             = useState("");
+  const [results,           setResults]           = useState<SearchResult[]>([]);
+  const [keywords,          setKeywords]          = useState<string[]>([]);
+  const [trending,          setTrending]          = useState<string[]>([]);
+  const [popularCategories, setPopularCategories] = useState<{ name: string; slug: string }[]>([]);
+  const [recentSearches,    setRecentSearches]    = useState<string[]>([]);
+  const [loading,           setLoading]           = useState(false);
+  const [focused,           setFocused]           = useState(-1);
+  const [trendingLoaded,    setTrendingLoaded]    = useState(false);
 
   useEffect(() => {
-    if (visible) setTimeout(() => inputRef.current?.focus(), 100);
-  }, [visible]);
+    if (visible) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+      if (!trendingLoaded) {
+        fetch("/api/search/trending")
+          .then((r) => r.json())
+          .then((json) => {
+            if (json.success) {
+              setTrending(json.data?.trending ?? []);
+              setPopularCategories(json.data?.categories ?? []);
+              setTrendingLoaded(true);
+            }
+          }).catch(() => {});
+      }
+      fetch("/api/search/recent")
+        .then((r) => { if (r.status === 401) return null; return r.json(); })
+        .then((json) => { if (json?.success) setRecentSearches(json.data?.queries ?? []); })
+        .catch(() => {});
+    } else {
+      setQuery(""); setResults([]); setKeywords([]); setFocused(-1);
+    }
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const search = useCallback((q: string) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!q.trim()) { setResults([]); setKeywords([]); setLoading(false); return; }
+    setLoading(true);
+    timerRef.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(`/api/search/suggest?q=${encodeURIComponent(q.trim())}`);
+        const json = await res.json();
+        if (json.success) {
+          setResults(json.data?.products ?? []);
+          setKeywords(json.data?.keywords ?? []);
+        }
+      } catch { setResults([]); setKeywords([]); }
+      finally { setLoading(false); }
+    }, 280);
+  }, []);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setQuery(e.target.value); setFocused(-1); search(e.target.value);
+  }
+
+  function goToSearch(q: string) {
+    router.push(`/search?q=${encodeURIComponent(q.trim())}`);
+    fetch("/api/search/recent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q: q.trim() }) }).catch(() => {});
+    onClose();
+  }
+
+  function goToProduct(slug: string, position: number) {
+    const result = results.find((r) => r.slug === slug);
+    fetch("/api/search/click", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, productId: result?._id, slug, position }) }).catch(() => {});
+    router.push(`/product/${slug}`);
+    onClose();
+  }
+
+  function clearRecent(q?: string) {
+    if (q) {
+      fetch("/api/search/recent", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }) }).catch(() => {});
+      setRecentSearches((prev) => prev.filter((r) => r !== q));
+    } else {
+      fetch("/api/search/recent", { method: "DELETE" }).catch(() => {});
+      setRecentSearches([]);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    const total = results.length + keywords.length;
+    if (e.key === "ArrowDown")  { e.preventDefault(); setFocused((p) => Math.min(p + 1, total - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setFocused((p) => Math.max(p - 1, -1)); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      if (focused >= 0 && focused < results.length) goToProduct(results[focused].slug, focused);
+      else if (focused >= results.length && focused < total) goToSearch(keywords[focused - results.length]);
+      else if (query.trim()) goToSearch(query);
+    } else if (e.key === "Escape") onClose();
+  }
+
+  const hasQuery = query.trim().length > 0;
 
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-100 bg-black/40 backdrop-blur-xl"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-100 bg-black/50 backdrop-blur-xl"
           onClick={(e) => e.target === e.currentTarget && onClose()}
         >
-          <div className="container-padded pb-8 pt-24">
+          <div className="container-padded pb-8 pt-20">
             <div className="mx-auto max-w-2xl">
+
+              {/* Input */}
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                {loading
+                  ? <Loader2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#1a5c14] animate-spin" />
+                  : <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                }
                 <input
-                  ref={inputRef}
-                  type="search"
+                  ref={inputRef} type="text" value={query}
+                  onChange={handleChange} onKeyDown={handleKeyDown}
                   placeholder="Search products, categories…"
-                  className="h-14 w-full rounded-2xl border border-border bg-background pl-12 pr-14 text-base outline-none focus:border-brand-emerald focus:ring-2 focus:ring-brand-emerald/20"
+                  autoComplete="off" autoCorrect="off" spellCheck={false}
+                  className="h-14 w-full rounded-2xl border border-gray-200 bg-white pl-12 pr-20 text-base focus:border-[#1a5c14] focus:ring-2 focus:ring-[#1a5c14]/20 outline-none shadow-lg transition-shadow"
                 />
-                <button
-                  onClick={onClose}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 rounded-lg p-1 transition-colors hover:bg-muted"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {query && (
+                    <button onClick={() => { setQuery(""); setResults([]); setKeywords([]); inputRef.current?.focus(); }}
+                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
-              <p className="mt-4 text-center text-sm text-muted-foreground">
-                Press <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs">Esc</kbd> to close
-              </p>
+
+              {/* IDLE STATE */}
+              {!hasQuery && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                  className="mt-3 overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+                  {recentSearches.length > 0 && (
+                    <>
+                      <div className="px-4 pt-4 pb-3">
+                        <div className="flex items-center justify-between mb-2.5">
+                          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                            <Clock className="h-3.5 w-3.5" /> Recent Searches
+                          </span>
+                          <button onClick={() => clearRecent()} className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors">
+                            <Trash2 className="h-3 w-3" /> Clear all
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {recentSearches.slice(0, 8).map((r) => (
+                            <div key={r} className="group flex items-center gap-1">
+                              <button onClick={() => goToSearch(r)}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm hover:border-[#1a5c14]/40 hover:bg-[#1a5c14]/5 transition-colors">
+                                <Clock className="h-3 w-3 text-gray-400" /> {r}
+                              </button>
+                              <button onClick={() => clearRecent(r)}
+                                className="hidden group-hover:flex items-center justify-center h-5 w-5 rounded-full hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors">
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mx-4 border-t border-gray-100" />
+                    </>
+                  )}
+
+                  <div className="px-4 py-3">
+                    <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      <TrendingUp className="h-3.5 w-3.5" /> Trending Searches
+                    </p>
+                    {trending.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {trending.slice(0, 10).map((t, i) => (
+                          <button key={t} onClick={() => goToSearch(t)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm hover:border-[#1a5c14]/40 hover:bg-[#1a5c14]/5 transition-colors">
+                            <span className="text-[10px] font-bold text-[#1a5c14]">{i + 1}</span> {t}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">{[1,2,3,4].map((n) => <div key={n} className="h-7 w-20 animate-pulse rounded-full bg-gray-100" />)}</div>
+                    )}
+                  </div>
+
+                  {popularCategories.length > 0 && (
+                    <>
+                      <div className="mx-4 border-t border-gray-100" />
+                      <div className="px-4 py-3 pb-4">
+                        <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                          <Tag className="h-3.5 w-3.5" /> Browse Categories
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {popularCategories.map((cat) => (
+                            <Link key={cat.slug} href={`/shop?category=${cat.slug}`} onClick={onClose}
+                              className="rounded-full bg-gray-100 px-3 py-1 text-sm hover:bg-[#1a5c14]/10 hover:text-[#1a5c14] transition-colors">
+                              {cat.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              )}
+
+              {/* RESULTS STATE */}
+              {hasQuery && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14 }}
+                  className="mt-3 overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+                  {keywords.length > 0 && (
+                    <>
+                      <div className="divide-y divide-gray-50">
+                        {keywords.slice(0, 5).map((kw, i) => {
+                          const kwIdx = results.length + i;
+                          return (
+                            <button key={kw} onClick={() => goToSearch(kw)}
+                              className={cn("flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors",
+                                focused === kwIdx ? "bg-[#1a5c14]/10" : "hover:bg-[#1a5c14]/5")}>
+                              <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                              <span className="truncate">{highlight(kw, query)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {results.length > 0 && <div className="mx-4 border-t border-gray-100" />}
+                    </>
+                  )}
+
+                  {results.length > 0 && (
+                    <>
+                      <div className="px-4 pt-3 pb-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Products</p>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {results.slice(0, 6).map((item, i) => (
+                          <button key={item._id} onClick={() => goToProduct(item.slug, i)}
+                            className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+                              focused === i ? "bg-gray-50" : "hover:bg-gray-50/80")}>
+                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                              {item.images[0]
+                                ? <img src={item.images[0]} alt={item.name} className="h-full w-full object-cover" />
+                                : <div className="flex h-full w-full items-center justify-center"><Package className="h-5 w-5 text-gray-300" /></div>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate text-sm font-semibold text-gray-900">{highlight(item.name, query)}</p>
+                              {item.category?.name && (
+                                <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
+                                  <Tag className="h-3 w-3" /> {item.category.name}
+                                </p>
+                              )}
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <p className="text-sm font-bold text-gray-900">₹{item.basePrice.toLocaleString("en-IN")}</p>
+                              {item.compareAtPrice && item.compareAtPrice > item.basePrice && (
+                                <p className="text-xs text-gray-400 line-through">₹{item.compareAtPrice.toLocaleString("en-IN")}</p>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {loading && results.length === 0 && keywords.length === 0 && (
+                    <div className="flex items-center justify-center py-10">
+                      <Loader2 className="h-6 w-6 animate-spin text-[#1a5c14]" />
+                    </div>
+                  )}
+
+                  {!loading && results.length === 0 && keywords.length === 0 && (
+                    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+                      <Search className="h-8 w-8 text-gray-200" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">No results for &ldquo;{query}&rdquo;</p>
+                        <p className="mt-0.5 text-xs text-gray-400">Try a different spelling or keyword</p>
+                      </div>
+                      {trending.length > 0 && (
+                        <div className="mt-1">
+                          <p className="mb-2 text-xs text-gray-400">Try:</p>
+                          <div className="flex flex-wrap justify-center gap-1.5">
+                            {trending.slice(0, 5).map((t) => (
+                              <button key={t} onClick={() => goToSearch(t)}
+                                className="rounded-full bg-gray-100 px-3 py-1 text-xs hover:bg-[#1a5c14]/10 hover:text-[#1a5c14] transition-colors">
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!loading && (results.length > 0 || keywords.length > 0) && (
+                    <button onClick={() => goToSearch(query)}
+                      className="flex w-full items-center justify-between border-t border-gray-100 bg-[#1a5c14]/5 px-4 py-3 text-sm font-semibold text-[#1a5c14] transition-colors hover:bg-[#1a5c14]/10">
+                      <span>See all results for &ldquo;{query}&rdquo;</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  )}
+                </motion.div>
+              )}
+
+              {!hasQuery && (
+                <p className="mt-4 text-center text-sm text-white/60">
+                  <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 font-mono text-xs text-white">Esc</kbd>
+                  {" to close · "}
+                  <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 font-mono text-xs text-white">↑ ↓</kbd>
+                  {" navigate · "}
+                  <kbd className="rounded border border-white/20 bg-white/10 px-1.5 py-0.5 font-mono text-xs text-white">Enter</kbd>
+                  {" select"}
+                </p>
+              )}
+
             </div>
           </div>
         </motion.div>

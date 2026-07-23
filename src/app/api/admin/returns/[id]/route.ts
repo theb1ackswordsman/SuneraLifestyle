@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/connection";
 import { Return, RETURN_STATUS, REFUND_STATUS } from "@/models/return.model";
 import { Order } from "@/models/order.model";
+import { Product } from "@/models/product.model";
 import { User } from "@/models/user.model";
 import { sendEmail } from "@/lib/email/mailer";
 import {
@@ -78,6 +79,15 @@ export async function PUT(
       returnDoc.adminNote = body.adminNote;
       returnDoc.timeline.push({ status: RETURN_STATUS.APPROVED, message: body.adminNote || "Return request approved by admin.", timestamp: new Date(), performedBy: "admin" });
       await returnDoc.save();
+
+      // Restore stock for each returned item (non-blocking)
+      for (const item of returnDoc.items) {
+        if (item.productId) {
+          Product.findByIdAndUpdate(item.productId, {
+            $inc: { stock: item.quantity },
+          }).catch((e: unknown) => console.error("[Stock] restore failed for", item.productId, e));
+        }
+      }
 
       const email = await getUserEmail(returnDoc.userId);
       if (email) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { connectDB } from "@/lib/db/connection";
 import { Order, IOrderDocument } from "@/models/order.model";
+import { Product } from "@/models/product.model";
 import { User } from "@/models/user.model";
 import { getServerSession } from "@/lib/auth/session";
 import { PAYMENT_STATUS, PAYMENT_METHODS, ORDER_STATUS } from "@/constants";
@@ -69,6 +70,14 @@ export async function POST(req: NextRequest) {
       timeline: [{ status: ORDER_STATUS.CONFIRMED, timestamp: new Date(), message: "Order placed via Cash on Delivery." }],
       estimatedDelivery: new Date(Date.now() + 5 * 86400000),
     });
+
+    // Decrement stock for each ordered item (non-blocking, floor at 0)
+    for (const item of items as Array<{ productId: string; quantity: number }>) {
+      Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: -item.quantity },
+      }).catch((e: unknown) => console.error("[Stock] decrement failed for", item.productId, e));
+    }
+
     return NextResponse.json({ success: true, orderNumber: order.orderNumber, orderId: String(order._id) }, { status: 201 });
   }
 
@@ -166,6 +175,13 @@ export async function PUT(req: NextRequest) {
   );
 
   if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+  // Decrement stock now that payment is confirmed (non-blocking, floor at 0)
+  for (const item of (order.items as unknown as Array<{ productId: unknown; quantity: number }>)) {
+    Product.findByIdAndUpdate(item.productId, {
+      $inc: { stock: -item.quantity },
+    }).catch((e: unknown) => console.error("[Stock] decrement failed for", item.productId, e));
+  }
 
   // Send confirmation email (non-blocking)
   sendOrderEmail(order, session.user!.email).catch((e) =>

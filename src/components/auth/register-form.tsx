@@ -95,7 +95,7 @@ export function RegisterForm() {
             Click it to activate your account.
           </p>
           <p className="mt-1.5 text-xs text-muted-foreground">
-            If you don't see it, check your <strong>Spam</strong> or <strong>Promotions</strong> folder.
+            If you don&apos;t see it, check your <strong>Spam</strong> or <strong>Promotions</strong> folder.
           </p>
         </div>
 

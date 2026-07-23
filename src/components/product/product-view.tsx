@@ -14,12 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/shared/product-card";
 import type { ProductDetail, RelatedProduct } from "@/lib/shop/query-product";
 import { useRequireAuth } from "@/hooks/use-auth";
-
-const MOCK_REVIEWS = [
-  { name: "Aditya R.", rating: 5, date: "2 weeks ago", title: "Genuinely the best I've tried", body: "Mixes clean with zero clumps and the flavour isn't overpowering. Recovery has noticeably improved.", verified: true },
-  { name: "Kavya S.", rating: 5, date: "1 month ago", title: "Worth every rupee", body: "Fast delivery, sealed packaging, and results within a few weeks. Will repurchase.", verified: true },
-  { name: "Manish T.", rating: 4, date: "1 month ago", title: "Great value", body: "Does exactly what it says. Only wish there were more flavour options.", verified: true },
-];
+import { ReviewSection } from "@/components/product/review-section";
 
 function Stars({ rating, className }: { rating: number; className?: string }) {
   return (
@@ -312,53 +307,11 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
             )}
 
             {tab === "Reviews" && (
-              <div className="max-w-3xl">
-                {/* Summary */}
-                <div className="mb-6 flex flex-wrap items-center gap-6 rounded-2xl border border-border bg-muted/30 p-6">
-                  <div className="text-center">
-                    <p className="text-4xl font-black">{rating.toFixed(1)}</p>
-                    <Stars rating={rating} className="mt-1 justify-center" />
-                    <p className="mt-1 text-xs text-muted-foreground">{reviewCount.toLocaleString()} reviews</p>
-                  </div>
-                  <div className="flex-1 min-w-45 space-y-1.5">
-                    {[5, 4, 3, 2, 1].map((n) => {
-                      const dist = product.reviewSummary.distribution.find((d) => d.star === n);
-                      const pct = reviewCount > 0 ? Math.round(((dist?.count ?? 0) / reviewCount) * 100) : 0;
-                      return (
-                        <div key={n} className="flex items-center gap-2 text-xs">
-                          <span className="w-3 text-muted-foreground">{n}</span>
-                          <Star className="h-3 w-3 fill-brand-orange text-brand-orange" />
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                            <div className="h-full rounded-full bg-brand-orange" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Review list */}
-                <div className="space-y-5">
-                  {MOCK_REVIEWS.map((r) => (
-                    <div key={r.name} className="border-b border-border pb-5 last:border-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">{r.name}</span>
-                          {r.verified && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-brand-emerald/10 px-2 py-0.5 text-[10px] font-semibold text-brand-emerald-dark">
-                              <Check className="h-2.5 w-2.5" /> Verified
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{r.date}</span>
-                      </div>
-                      <Stars rating={r.rating} className="mt-1.5" />
-                      <p className="mt-2 text-sm font-semibold">{r.title}</p>
-                      <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{r.body}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ReviewSection
+                productId={product._id}
+                productSlug={product.slug}
+                initialSummary={product.reviewSummary}
+              />
             )}
           </div>
         </div>

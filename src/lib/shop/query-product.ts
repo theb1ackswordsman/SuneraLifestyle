@@ -52,6 +52,28 @@ export interface RelatedProduct {
   isBestSeller: boolean;
 }
 
+export interface RemovedProductInfo {
+  name: string;
+  image?: string;
+  categoryName?: string;
+  categorySlug?: string;
+}
+
+export async function queryRemovedProductBySlug(slug: string): Promise<RemovedProductInfo | null> {
+  await connectDB();
+  const raw = await Product.findOne({ slug })
+    .populate("category", "name slug")
+    .lean<Record<string, unknown>>();
+  if (!raw) return null;
+  const cat = raw.category as Record<string, unknown> | null;
+  return {
+    name:         String(raw.name ?? ""),
+    image:        (raw.images as string[] | undefined)?.[0],
+    categoryName: cat ? String(cat.name ?? "") : undefined,
+    categorySlug: cat ? String(cat.slug ?? "") : undefined,
+  };
+}
+
 export async function queryProductBySlug(slug: string): Promise<ProductDetail | null> {
   await connectDB();
 

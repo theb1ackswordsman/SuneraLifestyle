@@ -120,14 +120,26 @@ function ReturnModal({
   onClose: () => void;
   onSuccess: (returnDoc: ReturnDoc) => void;
 }) {
-  const [reason,      setReason]      = useState("");
-  const [description, setDescription] = useState("");
-  const [uploading,   setUploading]   = useState(false);
-  const [submitting,  setSubmitting]  = useState(false);
-  const [imageFiles,  setImageFiles]  = useState<File[]>([]);
-  const [imagePrev,   setImagePrev]   = useState<string[]>([]);
-  const [error,       setError]       = useState("");
+  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(() => new Set(order.items.map((i) => i._id)));
+  const [reason,       setReason]       = useState("");
+  const [description,  setDescription]  = useState("");
+  const [uploading,    setUploading]    = useState(false);
+  const [submitting,   setSubmitting]   = useState(false);
+  const [imageFiles,   setImageFiles]   = useState<File[]>([]);
+  const [imagePrev,    setImagePrev]    = useState<string[]>([]);
+  const [error,        setError]        = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  function toggleItem(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
+
+  const selectedItems  = order.items.filter((i) => selectedIds.has(i._id));
+  const estimatedTotal = selectedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   function pickImages(files: FileList | null) {
     if (!files) return;
@@ -159,6 +171,7 @@ function ReturnModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (selectedIds.size === 0) { setError("Please select at least one item to return."); return; }
     if (!reason) { setError("Please select a return reason."); return; }
     setError(""); setSubmitting(true);
 
@@ -167,10 +180,12 @@ function ReturnModal({
       const images = imageFiles.length > 0 ? await uploadImages() : [];
       setUploading(false);
 
+      const items = selectedItems.map((i) => ({ _id: i._id, quantity: i.quantity }));
+
       const res  = await fetch("/api/returns", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ orderId: order._id, reason, description, images }),
+        body:    JSON.stringify({ orderId: order._id, items, reason, description, images }),
       });
       const json = await res.json();
 
@@ -203,13 +218,52 @@ function ReturnModal({
 
         {/* Order summary */}
         <div className="px-5 pt-4 pb-2">
-          <p className="text-xs text-muted-foreground">Order <span className="font-mono font-bold text-foreground">{order.orderNumber}</span> · {order.items.length} item{order.items.length !== 1 ? "s" : ""} · {formatPrice(order.total)}</p>
+          <p className="text-xs text-muted-foreground">Order <span className="font-mono font-bold text-foreground">{order.orderNumber}</span></p>
         </div>
 
-        <form onSubmit={submit} className="p-5 space-y-4">
+        <form onSubmit={submit} className="p-5 space-y-5">
           {error && (
             <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
           )}
+
+          {/* Item selection */}
+          <div>
+            <label className="block text-sm font-semibold text-foreground mb-2">
+              Select Items to Return <span className="text-red-500">*</span>
+              <span className="ml-1.5 text-xs text-muted-foreground font-normal">({selectedIds.size} of {order.items.length} selected)</span>
+            </label>
+            <div className="space-y-2">
+              {order.items.map((item) => {
+                const checked = selectedIds.has(item._id);
+                return (
+                  <label key={item._id}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors",
+                      checked ? "border-[#1a5c14]/40 bg-[#1a5c14]/5" : "border-border bg-background hover:bg-muted/40"
+                    )}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleItem(item._id)}
+                      className="h-4 w-4 shrink-0 rounded accent-[#1a5c14] cursor-pointer"
+                    />
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                      {item.image
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                        : <div className="flex h-full w-full items-center justify-center"><ShoppingBag className="h-4 w-4 text-muted-foreground/30" /></div>
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold line-clamp-1">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">Qty: {item.quantity} · {formatPrice(item.price)} each</p>
+                    </div>
+                    <p className="text-sm font-bold shrink-0">{formatPrice(item.price * item.quantity)}</p>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Reason */}
           <div>
@@ -268,16 +322,22 @@ function ReturnModal({
               onChange={(e) => pickImages(e.target.files)} />
           </div>
 
-          {/* Return window notice */}
-          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-700">
-            ⏰ Returns are accepted within <strong>{RETURN_WINDOW_DAYS} days</strong> of delivery. Refunds are processed after admin review.
+          {/* Estimated refund + return window notice */}
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 space-y-1.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-amber-700 font-medium">Estimated Refund</span>
+              <span className="font-bold text-amber-900">{selectedIds.size > 0 ? formatPrice(estimatedTotal) : "—"}</span>
+            </div>
+            <p className="text-xs text-amber-600">
+              ⏰ Returns accepted within <strong>{RETURN_WINDOW_DAYS} days</strong> of delivery. Final refund amount is confirmed after admin review.
+            </p>
           </div>
 
           {/* Submit */}
-          <button type="submit" disabled={submitting || !reason}
+          <button type="submit" disabled={submitting || !reason || selectedIds.size === 0}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a5c14] py-3 text-sm font-semibold text-white hover:bg-[#15490f] transition-colors disabled:opacity-60">
             {(submitting || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
-            {uploading ? "Uploading images…" : submitting ? "Submitting…" : "Submit Return Request"}
+            {uploading ? "Uploading images…" : submitting ? "Submitting…" : `Submit Return Request${selectedIds.size > 0 && selectedIds.size < order.items.length ? ` (${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""})` : ""}`}
           </button>
         </form>
       </div>
@@ -469,20 +529,44 @@ function OrderCard({
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Activity</p>
               <div className="space-y-0">
-                {[...order.timeline].reverse().map((t, i) => (
-                  <div key={i} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className={cn("h-2 w-2 rounded-full mt-1.5 shrink-0",
-                        i === 0 ? "bg-[#1a5c14]" : "bg-gray-300")} />
-                      {i < order.timeline.length - 1 && <div className="w-px flex-1 bg-gray-100 my-1" />}
+                {[...order.timeline].reverse().map((t, i) => {
+                  const isLatest = i === 0;
+                  const isLast   = i === order.timeline.length - 1;
+                  return (
+                    <div key={i} className="flex gap-3">
+                      {/* Dot + connector */}
+                      <div className="flex flex-col items-center">
+                        {isLatest ? (
+                          <div className="relative mt-1 shrink-0">
+                            <div className="h-3 w-3 rounded-full bg-[#1a5c14]" />
+                            <div className="absolute inset-0 rounded-full bg-[#1a5c14]/30 scale-[2] animate-ping" style={{ animationDuration: "2s" }} />
+                          </div>
+                        ) : (
+                          <div className="h-2.5 w-2.5 rounded-full bg-[#1a5c14] mt-1.5 shrink-0" />
+                        )}
+                        {!isLast && (
+                          <div className="w-px flex-1 bg-[#1a5c14]/30 my-1.5" />
+                        )}
+                      </div>
+                      {/* Content */}
+                      <div className={cn("pb-4 min-w-0", isLatest && "pb-3")}>
+                        <p className={cn(
+                          "text-sm font-semibold capitalize",
+                          isLatest ? "text-[#1a5c14]" : "text-foreground"
+                        )}>
+                          {t.status.replace(/_/g, " ")}
+                          {isLatest && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-[#1a5c14]/10 px-2 py-0.5 text-[10px] font-bold text-[#1a5c14]">
+                              Latest
+                            </span>
+                          )}
+                        </p>
+                        {t.message && <p className="text-xs text-muted-foreground mt-0.5">{t.message}</p>}
+                        <p className="text-[11px] text-muted-foreground/60 mt-1">{fmtDate(t.timestamp)} · {fmtTime(t.timestamp)}</p>
+                      </div>
                     </div>
-                    <div className="pb-4 min-w-0">
-                      <p className="text-sm font-semibold capitalize text-foreground">{t.status}</p>
-                      {t.message && <p className="text-xs text-muted-foreground mt-0.5">{t.message}</p>}
-                      <p className="text-[11px] text-muted-foreground/60 mt-1">{fmtDate(t.timestamp)} · {fmtTime(t.timestamp)}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

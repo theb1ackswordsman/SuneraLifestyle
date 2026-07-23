@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const body = await req.json();
-    const { orderId, reason, description, images, video } = body;
+    const { orderId, reason, description, images, video, items: requestedItems } = body;
 
     if (!orderId) return badRequest("Order ID is required.");
     if (!reason || !RETURN_REASONS.includes(reason)) return badRequest("Invalid return reason.");
@@ -72,13 +72,46 @@ export async function POST(req: NextRequest) {
     });
     if (existing) return conflict("A return request already exists for this order.");
 
-    const items = (order.items as unknown as Array<Record<string, unknown>>).map((i) => ({
-      _id:      String(i._id ?? ""),
-      name:     String(i.name ?? "Unknown"),
-      image:    String(i.image ?? ""),
-      price:    Number(i.price ?? 0),
-      quantity: Number(i.quantity ?? 1),
-    }));
+    const orderItemsMap = new Map(
+      (order.items as unknown as Array<Record<string, unknown>>).map((i) => [String(i._id), i])
+    );
+
+    let items: { _id: string; productId: string; name: string; image: string; price: number; quantity: number }[];
+
+    if (Array.isArray(requestedItems) && requestedItems.length > 0) {
+      // Partial return: validate each requested item exists in the order
+      items = [];
+      for (const req of requestedItems as Array<{ _id: string; quantity?: number }>) {
+        const orderItem = orderItemsMap.get(String(req._id));
+        if (!orderItem) return badRequest(`Item not found in order.`);
+        const requestedQty = Number(req.quantity ?? 1);
+        const maxQty = Number(orderItem.quantity ?? 1);
+        if (requestedQty < 1 || requestedQty > maxQty) {
+          return badRequest(`Invalid quantity for item "${orderItem.name}".`);
+        }
+        items.push({
+          _id:       String(orderItem._id ?? ""),
+          productId: String(orderItem.productId ?? ""),
+          name:      String(orderItem.name ?? "Unknown"),
+          image:     String(orderItem.image ?? ""),
+          price:     Number(orderItem.price ?? 0),
+          quantity:  requestedQty,
+        });
+      }
+    } else {
+      // Full order return (fallback)
+      items = (order.items as unknown as Array<Record<string, unknown>>).map((i) => ({
+        _id:       String(i._id ?? ""),
+        productId: String(i.productId ?? ""),
+        name:      String(i.name ?? "Unknown"),
+        image:     String(i.image ?? ""),
+        price:     Number(i.price ?? 0),
+        quantity:  Number(i.quantity ?? 1),
+      }));
+    }
+
+    // Refund total is sum of returned items only, not the full order total
+    const returnTotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
     const returnDoc = await Return.create({
       returnNumber:       generateReturnNumber(),
@@ -86,7 +119,7 @@ export async function POST(req: NextRequest) {
       orderNumber:        order.orderNumber,
       userId:             session.user._id,
       items,
-      orderTotal:         order.total,
+      orderTotal:         returnTotal,
       reason,
       description:        description?.trim() || undefined,
       images:             Array.isArray(images) ? images.filter(Boolean).slice(0, 5) : [],

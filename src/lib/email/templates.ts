@@ -450,6 +450,86 @@ export function refundFailedTemplate(opts: {
   `);
 }
 
+// ─── Review emails ────────────────────────────────────────────────────────────
+
+export function reviewSubmittedTemplate({
+  productName,
+  trackUrl,
+}: {
+  productName: string;
+  trackUrl: string;
+}): string {
+  return wrapper(`
+    <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0a0a0a;">Review Received ✍️</h2>
+    <p style="margin:0 0 24px;color:#4b5563;font-size:15px;line-height:1.6;">
+      Thank you for sharing your feedback on <strong>${productName}</strong>. Your review is currently being reviewed by our team.
+    </p>
+    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:14px;color:#92400e;font-weight:600;">What happens next?</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#78350f;line-height:1.6;">
+        Reviews are typically approved within 24–48 hours. You'll receive an email once it goes live.
+      </p>
+    </div>
+    <div style="text-align:center;">${btn(trackUrl, "View My Reviews")}</div>
+    ${note("Thank you for being part of the SunEra Lifestyle community.")}
+  `);
+}
+
+export function reviewApprovedTemplate({
+  productName,
+  rating,
+  productUrl,
+}: {
+  productName: string;
+  rating: number;
+  productUrl: string;
+}): string {
+  const filled  = "★".repeat(Math.min(5, Math.max(1, rating)));
+  const empty   = "☆".repeat(5 - filled.length);
+  return wrapper(`
+    <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0a0a0a;">Your Review Is Live! 🎉</h2>
+    <p style="margin:0 0 24px;color:#4b5563;font-size:15px;line-height:1.6;">
+      Your review for <strong>${productName}</strong> has been approved and is now visible to other shoppers.
+    </p>
+    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#15803d;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Your Rating</p>
+      <p style="margin:8px 0 0;font-size:28px;color:#f5a823;letter-spacing:2px;">${filled}${empty}</p>
+      <p style="margin:4px 0 0;font-size:14px;font-weight:700;color:#14532d;">${rating} out of 5 stars</p>
+    </div>
+    <div style="text-align:center;">${btn(productUrl, "View on Product Page")}</div>
+    ${note("Your honest feedback helps others make informed decisions. Thank you!")}
+  `);
+}
+
+export function reviewRejectedTemplate({
+  productName,
+  rejectionReason,
+  trackUrl,
+}: {
+  productName: string;
+  rejectionReason: string;
+  trackUrl: string;
+}): string {
+  return wrapper(`
+    <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0a0a0a;">Review Not Published</h2>
+    <p style="margin:0 0 24px;color:#4b5563;font-size:15px;line-height:1.6;">
+      Unfortunately, your review for <strong>${productName}</strong> could not be published as it did not meet our community guidelines.
+    </p>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;font-weight:700;color:#991b1b;">Reason</p>
+      <p style="margin:6px 0 0;font-size:14px;color:#7f1d1d;line-height:1.6;">${rejectionReason}</p>
+    </div>
+    <div style="background:#f9fafb;border-radius:12px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;font-weight:700;color:#0a0a0a;">Want to try again?</p>
+      <p style="margin:6px 0 0;font-size:13px;color:#4b5563;line-height:1.6;">
+        You're welcome to submit a new review — keep it honest, relevant, and respectful.
+      </p>
+    </div>
+    <div style="text-align:center;">${btn(trackUrl, "View My Orders")}</div>
+    ${note("Questions? WhatsApp us at <strong>+91 91355 64607</strong>.")}
+  `);
+}
+
 export function welcomeTemplate(name: string): string {
   return wrapper(`
     <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0a0a0a;">Welcome to SunEra! 🎉</h2>

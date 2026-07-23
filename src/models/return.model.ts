@@ -58,7 +58,7 @@ export interface IReturnDocument extends Document {
   orderId:       mongoose.Types.ObjectId;
   orderNumber:   string;
   userId:        mongoose.Types.ObjectId;
-  items:         Array<{ _id: string; name: string; image: string; price: number; quantity: number }>;
+  items:         Array<{ _id: string; productId: string; name: string; image: string; price: number; quantity: number }>;
   orderTotal:    number;
   reason:        ReturnReason;
   description?:  string;
@@ -90,11 +90,12 @@ const returnSchema = new Schema<IReturnDocument>(
     orderNumber:   { type: String, required: true },
     userId:        { type: Schema.Types.ObjectId, ref: "User", required: true },
     items: [{
-      _id:      { type: String, required: true },
-      name:     { type: String, required: true },
-      image:    { type: String, default: "" },
-      price:    { type: Number, required: true },
-      quantity: { type: Number, required: true },
+      _id:       { type: String, required: true },
+      productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+      name:      { type: String, required: true },
+      image:     { type: String, default: "" },
+      price:     { type: Number, required: true },
+      quantity:  { type: Number, required: true },
     }],
     orderTotal:   { type: Number, required: true },
     reason:       { type: String, enum: RETURN_REASONS, required: true },
