@@ -27,6 +27,7 @@ function toListItem(p: (typeof MOCK_PRODUCTS)[number]): ProductListItem {
     basePrice: p.price,
     compareAtPrice: p.compareAtPrice,
     images: [p.image],
+    stock: 999,
     reviewSummary: { average: p.rating, count: p.reviewCount },
     isNewArrival: p.badge === "new",
     isBestSeller: p.badge === "bestseller",

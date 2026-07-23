@@ -57,7 +57,7 @@ export async function sendEmail({ to, subject, html, text }: MailOptions): Promi
         "X-Mailer": "SunEra Lifestyle Transactional Mailer",
       },
     });
-    console.log("[Email] Sent — messageId:", info.messageId, "to:", to);
+    console.warn("[Email] Sent — messageId:", info.messageId, "to:", to);
   } catch (err) {
     console.error("[Email] SMTP error:", err);
     throw err;
