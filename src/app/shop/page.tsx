@@ -11,6 +11,8 @@ import { queryCategories } from "@/lib/shop/query-categories";
 import { fallbackProducts, fallbackCategories } from "@/lib/shop/fallback";
 import { ShoppingBag } from "lucide-react";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Shop — SunEra Lifestyle",
   description: "Browse premium Ayurvedic products and ethnic wear. Filter by category, price, and more.",
@@ -64,11 +66,13 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   }
 
   // If top-level type is selected (no specific subcategory), collect all subcategory slugs
+  // Always include the parent slug itself so products assigned directly to the parent are included,
+  // and so the filter still works even when subcategories haven't been linked in the DB yet.
   let categorySlugs: string[] | undefined;
   if (type && !category) {
     const parent = categories.find((c) => c.slug === type);
     if (parent) {
-      categorySlugs = parent.subcategories.map((s) => s.slug);
+      categorySlugs = [type, ...parent.subcategories.map((s) => s.slug)];
     }
   }
 

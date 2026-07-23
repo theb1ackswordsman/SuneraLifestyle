@@ -11,6 +11,8 @@ import { queryFeaturedSections } from "@/lib/shop/query-featured-by-type";
 import { queryTabbedProducts } from "@/lib/shop/query-tabbed-products";
 import { siteConfig } from "@/config/site";
 
+export const revalidate = 60; // ISR fallback: refresh at most every 60 s
+
 export const metadata: Metadata = {
   title: `${siteConfig.name} — ${siteConfig.tagline}`,
   description: siteConfig.description,

@@ -405,13 +405,24 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
                               {/* Top-level categories */}
                               {navCats.map((cat, i) => (
                                 <li key={cat._id}>
-                                  <button
-                                    onClick={() => toggleCategory(i)}
-                                    className="flex w-full items-center justify-between rounded-xl px-6 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-                                  >
-                                    <span>{cat.name}</span>
-                                    <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", activeIdx === i && "rotate-180")} />
-                                  </button>
+                                  <div className="flex items-center rounded-xl hover:bg-muted transition-colors">
+                                    <Link
+                                      href={cat.href}
+                                      onClick={onClose}
+                                      className="flex-1 px-6 py-2.5 text-sm font-semibold text-foreground"
+                                    >
+                                      {cat.name}
+                                    </Link>
+                                    {cat.subcategories.length > 0 && (
+                                      <button
+                                        onClick={() => toggleCategory(i)}
+                                        className="px-3 py-2.5"
+                                        aria-label={`Expand ${cat.name}`}
+                                      >
+                                        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", activeIdx === i && "rotate-180")} />
+                                      </button>
+                                    )}
+                                  </div>
 
                                   {/* Subcategories */}
                                   <AnimatePresence>
@@ -557,7 +568,7 @@ export function Header() {
 
         <div className={cn("transition-colors duration-300", navBg)}>
           <div className="container-padded">
-            <div className="flex h-15 items-center justify-between gap-4 lg:h-16">
+            <div className="relative flex h-15 items-center justify-between gap-4 lg:h-16">
 
               {/* Mobile hamburger */}
               <button
@@ -568,8 +579,8 @@ export function Header() {
                 <Menu className="h-5 w-5 text-foreground" />
               </button>
 
-              {/* Logo */}
-              <Link href={ROUTES.HOME} className="shrink-0">
+              {/* Logo — absolutely centered on mobile, static on desktop */}
+              <Link href={ROUTES.HOME} className="absolute left-1/2 -translate-x-1/2 shrink-0 lg:static lg:translate-x-0">
                 <Logo height={56} />
               </Link>
 

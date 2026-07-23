@@ -55,10 +55,11 @@ export function fallbackCategories(): CategoryItem[] {
 }
 
 export function fallbackProducts(opts: ProductQuery = {}): ProductQueryResult {
-  const { category, minPrice, maxPrice, sort, search, badge, page = 1, limit = 12 } = opts;
+  const { category, categorySlugs, minPrice, maxPrice, sort, search, badge, page = 1, limit = 12 } = opts;
   let items = MOCK_PRODUCTS.map(toListItem);
 
   if (category) items = items.filter((p) => p.category.slug === category);
+  else if (categorySlugs?.length) items = items.filter((p) => categorySlugs.includes(p.category.slug));
   if (search) {
     const q = search.toLowerCase();
     items = items.filter((p) => p.name.toLowerCase().includes(q));

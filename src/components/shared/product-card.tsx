@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { addToCart, toggleWishlist, isWishlisted } from "@/lib/cart-wishlist-store";
+import { useRequireAuth } from "@/hooks/use-auth";
 
 interface ProductCardProps {
   id: string;
@@ -49,6 +50,7 @@ export function ProductCard({
 }: ProductCardProps) {
   const [wishlisted,  setWishlisted]  = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const { requireAuth } = useRequireAuth();
 
   // Hydrate wishlist state from localStorage after mount
   useEffect(() => { setWishlisted(isWishlisted(id)); }, [id]);
@@ -60,17 +62,21 @@ export function ProductCard({
 
   function handleWishlist(e: React.MouseEvent) {
     e.preventDefault();
-    const added = toggleWishlist(id);
-    setWishlisted(added);
-    onWishlist?.(id);
+    requireAuth(() => {
+      const added = toggleWishlist(id);
+      setWishlisted(added);
+      onWishlist?.(id);
+    });
   }
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
-    addToCart(id);
-    setAddedToCart(true);
-    onAddToCart?.(id);
-    setTimeout(() => setAddedToCart(false), 1500);
+    requireAuth(() => {
+      addToCart(id);
+      setAddedToCart(true);
+      onAddToCart?.(id);
+      setTimeout(() => setAddedToCart(false), 1500);
+    });
   }
 
   return (

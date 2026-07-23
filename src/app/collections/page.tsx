@@ -43,12 +43,9 @@ export default function CollectionsPage() {
                 alt={c.title}
                 className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/40 to-black/10" />
               <div className="relative z-10 p-6">
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-white/70">
-                  {c.count} products
-                </span>
-                <h2 className="mt-1 text-2xl font-black text-white">{c.title}</h2>
+                <h2 className="text-2xl font-black text-white">{c.title}</h2>
                 <p className="mt-1.5 max-w-xs text-sm text-white/75">{c.description}</p>
                 <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-white transition-all group-hover:gap-3">
                   Shop Collection <ArrowRight className="h-4 w-4" />

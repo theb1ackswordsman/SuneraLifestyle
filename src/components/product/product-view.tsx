@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Star, Heart, ShoppingBag, Check, Truck, RefreshCw, ShieldCheck,
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/shared/product-card";
 import type { ProductDetail, RelatedProduct } from "@/lib/shop/query-product";
+import { useRequireAuth } from "@/hooks/use-auth";
 
 const MOCK_REVIEWS = [
   { name: "Aditya R.", rating: 5, date: "2 weeks ago", title: "Genuinely the best I've tried", body: "Mixes clean with zero clumps and the flavour isn't overpowering. Recovery has noticeably improved.", verified: true },
@@ -56,6 +58,9 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   const rating = product.reviewSummary.average;
   const reviewCount = product.reviewSummary.count;
 
+  const router = useRouter();
+  const { requireAuth } = useRequireAuth();
+
   const [activeImg, setActiveImg] = useState(0);
   const [size, setSize] = useState(sizes[0] ?? "");
   const [qty, setQty] = useState(1);
@@ -69,8 +74,18 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
       : null;
 
   function addToCart() {
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1800);
+    requireAuth(() => {
+      setAdded(true);
+      setTimeout(() => setAdded(false), 1800);
+    });
+  }
+
+  function handleWishlist() {
+    requireAuth(() => setWishlisted((w) => !w));
+  }
+
+  function handleBuyNow() {
+    requireAuth(() => router.push("/checkout"));
   }
 
   return (
@@ -226,7 +241,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               <Button
                 variant="outline"
                 size="icon-lg"
-                onClick={() => setWishlisted((w) => !w)}
+                onClick={handleWishlist}
                 aria-label="Add to wishlist"
                 className="h-12 w-12 shrink-0"
               >
@@ -234,9 +249,9 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               </Button>
             </div>
 
-            <Link href="/checkout" className="mt-3 block">
-              <Button variant="default" size="lg" className="w-full">Buy It Now</Button>
-            </Link>
+            <Button variant="default" size="lg" className="mt-3 w-full" onClick={handleBuyNow}>
+              Buy It Now
+            </Button>
 
             {/* Trust row */}
             <div className="mt-7 grid grid-cols-3 gap-3 border-t border-border pt-6">
