@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PackageSearch, ArrowRight } from "lucide-react";
 import { ShopLayout } from "@/components/layout/shop-layout";
 import { siteConfig } from "@/config/site";
+import { WA_LINK } from "@/lib/whatsapp";
 
 export const metadata: Metadata = {
   title: `Track Your Order — ${siteConfig.name}`,
@@ -58,7 +59,7 @@ export default function TrackOrderPage() {
               <p className="text-sm leading-relaxed text-muted-foreground">
                 If you placed a guest order or have trouble finding your order, reach out to us on{" "}
                 <a
-                  href="https://wa.me/919135564607"
+                  href={WA_LINK}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-[#25D366] hover:underline"

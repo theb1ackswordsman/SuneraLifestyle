@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { RefreshCw, ShieldCheck, AlertCircle, CheckCircle } from "lucide-react";
 import { ShopLayout } from "@/components/layout/shop-layout";
 import { siteConfig } from "@/config/site";
+import { WA_LINK } from "@/lib/whatsapp";
 
 export const metadata: Metadata = {
   title: `Refund & Return Policy — ${siteConfig.name}`,
@@ -86,7 +87,7 @@ export default function RefundPolicyPage() {
                 <li>Hand the package to the courier at the scheduled pick-up time.</li>
               </ol>
               <p className="mt-4">Alternatively, contact us on{" "}
-                <a href="https://wa.me/919135564607" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
+                <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
                   WhatsApp
                 </a>{" "}
                 with your order number and reason for return.
@@ -112,7 +113,7 @@ export default function RefundPolicyPage() {
               <h2 className="mb-3 text-base font-bold text-foreground">6. Contact</h2>
               <p>
                 For return and refund queries, WhatsApp us at{" "}
-                <a href="https://wa.me/919135564607" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
+                <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
                   +91 91355 64607
                 </a>{" "}
                 or email{" "}

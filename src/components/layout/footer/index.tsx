@@ -2,6 +2,7 @@ import Link from "next/link";
 import { connectDB } from "@/lib/db/connection";
 import { Category } from "@/models/category.model";
 import { siteConfig } from "@/config/site";
+import { WA_LINK } from "@/lib/whatsapp";
 import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/shared/logo";
 import { Mail } from "lucide-react";
@@ -71,7 +72,7 @@ export async function Footer() {
             </p>
             <div className="space-y-2.5 pt-1">
               <a
-                href="https://wa.me/919135564607"
+                href={WA_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-[#25D366]"

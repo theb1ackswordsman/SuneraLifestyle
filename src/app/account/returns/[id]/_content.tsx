@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, RotateCcw, Check, X, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WA_LINK } from "@/lib/whatsapp";
 
 interface ReturnDoc {
   _id: string;
@@ -287,7 +288,7 @@ export default function ReturnDetailContent() {
         {/* Need help */}
         <div className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground leading-relaxed">
           Need help with your return? WhatsApp us at{" "}
-          <a href="https://wa.me/919135564607" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
+          <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
             +91 91355 64607
           </a>
         </div>

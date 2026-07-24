@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, HeadphonesIcon, ChevronDown, MessageCircle, Mail, Phone } from "lucide-react";
+import { WA_LINK } from "@/lib/whatsapp";
 
 const FAQS = [
   { q: "How can I track my order?", a: "Once your order is shipped, you will receive an email with a tracking link. You can also find tracking details in your Orders section under My Account. Delivery typically takes 4–7 business days across India." },
@@ -55,7 +56,7 @@ export default function SupportContent() {
             Couldn&apos;t find what you were looking for? Reach out — we&apos;re here to help, typically within a few hours on working days.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <a href="https://wa.me/919135564607" target="_blank" rel="noopener noreferrer"
+            <a href={WA_LINK} target="_blank" rel="noopener noreferrer"
               className="group flex flex-col items-center gap-3 rounded-2xl border border-border bg-muted/20 p-6 text-center hover:border-[#25D366]/40 hover:bg-[#25D366]/5 transition-all"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366]/10 group-hover:bg-[#25D366]/20 transition-colors">

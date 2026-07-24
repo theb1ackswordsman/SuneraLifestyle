@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Truck, Clock, MapPin } from "lucide-react";
 import { ShopLayout } from "@/components/layout/shop-layout";
 import { siteConfig } from "@/config/site";
+import { WA_LINK } from "@/lib/whatsapp";
 
 export const metadata: Metadata = {
   title: `Shipping Policy — ${siteConfig.name}`,
@@ -104,7 +105,7 @@ export default function ShippingPolicyPage() {
               <h2 className="mb-3 text-base font-bold text-foreground">7. Contact</h2>
               <p>
                 For any shipping queries, WhatsApp us at{" "}
-                <a href="https://wa.me/919135564607" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
+                <a href={WA_LINK} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#25D366] hover:underline">
                   +91 91355 64607
                 </a>{" "}
                 or email{" "}

@@ -17,6 +17,7 @@ import { ROUTES } from "@/constants";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/shared/logo";
 import { siteConfig } from "@/config/site";
+import { WA_LINK } from "@/lib/whatsapp";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface NavSub      { _id: string; name: string; href: string }
@@ -281,8 +282,6 @@ function WhatsAppIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
-const WA_LINK = "https://wa.me/919135564607";
 
 // ─── Search Overlay ───────────────────────────────────────────────────────────
 interface SearchResult {

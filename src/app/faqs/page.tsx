@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ShopLayout } from "@/components/layout/shop-layout";
 import { siteConfig } from "@/config/site";
+import { WA_LINK } from "@/lib/whatsapp";
 
 export const metadata: Metadata = {
   title: `FAQs — ${siteConfig.name}`,
@@ -127,7 +128,7 @@ export default function FaqsPage() {
               <h3 className="text-xl font-black">Still have a question?</h3>
               <p className="mt-2 text-sm text-muted-foreground">Our team typically responds within a few hours.</p>
               <a
-                href="https://wa.me/919135564607"
+                href={WA_LINK}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-7 py-3 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"

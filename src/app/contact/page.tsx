@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Mail, MapPin, Clock } from "lucide-react";
 import { ShopLayout } from "@/components/layout/shop-layout";
 import { siteConfig } from "@/config/site";
+import { WA_LINK } from "@/lib/whatsapp";
 
 export const metadata: Metadata = {
   title: `Contact Us — ${siteConfig.name}`,
@@ -22,7 +23,7 @@ const CONTACT_CARDS = [
     title: "WhatsApp",
     detail: "+91 91355 64607",
     sub: "Chat with us directly",
-    href: "https://wa.me/919135564607",
+    href: WA_LINK,
     color: "text-[#25D366]",
     bg: "bg-[#25D366]/10",
   },
@@ -103,7 +104,7 @@ export default function ContactPage() {
               For order issues, shipping queries or product questions — WhatsApp is the quickest.
             </p>
             <a
-              href="https://wa.me/919135564607"
+              href={WA_LINK}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-7 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-7 py-3 text-sm font-bold text-white shadow-lg transition-opacity hover:opacity-90"
