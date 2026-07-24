@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   LayoutDashboard, Package, ShoppingBag, Users, Tag, Ticket,
-  Star, FileText, BarChart2, Warehouse, Settings, LogOut, ChevronRight, RotateCcw, X,
+  Star, FileText, BarChart2, Warehouse, Settings, LogOut, ChevronRight, RotateCcw, X, Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,7 @@ const NAV = [
   { label: "Returns",      href: "/admin/returns",        icon: RotateCcw },
   { label: "Coupons",      href: "/admin/coupons",        icon: Ticket },
   { label: "Reviews",      href: "/admin/reviews",        icon: Star },
+  { label: "Collections",  href: "/admin/collections",    icon: Layers },
   { label: "Blogs",        href: "/admin/blogs",          icon: FileText },
   { label: "Analytics",    href: "/admin/analytics",      icon: BarChart2 },
   { label: "Inventory",    href: "/admin/inventory",      icon: Warehouse },
