@@ -29,9 +29,10 @@ function loadEnv() {
 }
 loadEnv();
 
-// Admin seed credentials — override these via .env in production.
+// Admin seed credentials — must be set in .env (no hardcoded defaults for production).
 const ADMIN_EMAIL = process.env.ADMIN_SEED_EMAIL ?? "admin@sunera.in";
 const ADMIN_PASSWORD = process.env.ADMIN_SEED_PASSWORD ?? "SunEra@Admin2024";
+const ADMIN_PORTAL_CODE = process.env.ADMIN_PORTAL_CODE;
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -43,6 +44,7 @@ const userSchema = new mongoose.Schema({
   name:             { type: String, required: true },
   email:            { type: String, required: true, unique: true, lowercase: true },
   password:         { type: String, select: false },
+  adminPortalCode:  { type: String, select: false },
   role:             { type: String, enum: ["admin", "customer", "moderator"], default: "customer" },
   isEmailVerified:  { type: Boolean, default: false },
   isActive:         { type: Boolean, default: true },
@@ -56,20 +58,29 @@ async function seed() {
   await mongoose.connect(MONGODB_URI as string);
   console.log("✅  Connected to MongoDB");
 
+  if (!ADMIN_PORTAL_CODE) {
+    console.error("❌  ADMIN_PORTAL_CODE is not set in .env — required to seed admin portal code.");
+    console.error("    Add ADMIN_PORTAL_CODE=<your-code> to .env and re-run this script.");
+    process.exit(1);
+  }
+
+  const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
+  const hashedCode = await bcrypt.hash(ADMIN_PORTAL_CODE, 12);
+
   const existing = await User.findOne({ email: ADMIN_EMAIL });
   if (existing) {
-    console.log("ℹ️   Admin user already exists — updating role and verifying email.");
+    console.log("ℹ️   Admin user already exists — updating credentials.");
     await User.updateOne(
       { email: ADMIN_EMAIL },
-      { $set: { role: "admin", isEmailVerified: true, isActive: true } }
+      { $set: { role: "admin", isEmailVerified: true, isActive: true, password: hashedPassword, adminPortalCode: hashedCode } }
     );
     console.log("✅  Admin user updated.");
   } else {
-    const hashed = await bcrypt.hash(ADMIN_PASSWORD, 12);
     await User.create({
       name: "SunEra Admin",
       email: ADMIN_EMAIL,
-      password: hashed,
+      password: hashedPassword,
+      adminPortalCode: hashedCode,
       role: "admin",
       isEmailVerified: true,
       isActive: true,
@@ -77,11 +88,13 @@ async function seed() {
     console.log("✅  Admin user created.");
   }
 
-  console.log("\n🔑  Admin credentials");
+  console.log("\n🔑  Admin credentials (stored in database — env vars no longer needed at runtime)");
   console.log(`   Email    : ${ADMIN_EMAIL}`);
   console.log(`   Password : ${ADMIN_PASSWORD}`);
-  console.log("   Code     : (ADMIN_PORTAL_CODE from .env)");
+  console.log(`   Code     : ${ADMIN_PORTAL_CODE}`);
   console.log("   Portal   : http://localhost:3000/admin/login\n");
+  console.log("   ⚠️  These credentials are now in the database. You can remove ADMIN_SEED_EMAIL,");
+  console.log("       ADMIN_SEED_PASSWORD, and ADMIN_PORTAL_CODE from .env after this initial seed.\n");
 
   await mongoose.disconnect();
   process.exit(0);

@@ -15,23 +15,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   await connectDB();
 
-  const order = await Order.findOne({ _id: id, userId: session.user._id });
-  if (!order)
-    return NextResponse.json({ error: "Order not found." }, { status: 404 });
-
-  if (!CANCELLABLE_STATUSES.includes(order.status))
-    return NextResponse.json({ error: "This order cannot be cancelled as it has already been shipped or delivered." }, { status: 400 });
-
-  await Order.findByIdAndUpdate(id, {
-    $set: { status: "cancelled" },
-    $push: {
-      timeline: {
-        status: "cancelled",
-        timestamp: new Date(),
-        message: "Cancelled by user.",
+  // Single atomic operation: find by ownership + cancellable status, update in one query
+  const order = await Order.findOneAndUpdate(
+    { _id: id, userId: session.user._id, status: { $in: CANCELLABLE_STATUSES } },
+    {
+      $set: { status: "cancelled" },
+      $push: {
+        timeline: {
+          status: "cancelled",
+          timestamp: new Date(),
+          message: "Cancelled by user.",
+        },
       },
     },
-  });
+    { new: true }
+  );
+
+  if (!order)
+    return NextResponse.json({ error: "Order not found or cannot be cancelled." }, { status: 404 });
 
   return NextResponse.json({ success: true });
 }

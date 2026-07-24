@@ -37,7 +37,9 @@ export interface IUserDocument extends Document {
   createdAt: Date;
   updatedAt: Date;
   addresses: IAddress[];
+  adminPortalCode?: string;
   comparePassword(candidate: string): Promise<boolean>;
+  comparePortalCode(candidate: string): Promise<boolean>;
   isLocked(): boolean;
 }
 
@@ -82,6 +84,7 @@ const userSchema = new Schema<IUserDocument>(
     passwordResetToken: { type: String, select: false },
     passwordResetExpiry: { type: Date, select: false },
     refreshTokens: { type: [String], default: [], select: false },
+    adminPortalCode: { type: String, select: false },
     loginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date },
     lastLoginAt: { type: Date },
@@ -122,14 +125,23 @@ userSchema.index({ isActive: 1 });
 userSchema.index({ createdAt: -1 });
 
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password") || !this.password) return next();
-  this.password = await bcrypt.hash(this.password, 12);
+  if (this.isModified("adminPortalCode") && this.adminPortalCode) {
+    this.adminPortalCode = await bcrypt.hash(this.adminPortalCode, 12);
+  }
+  if (this.isModified("password") && this.password) {
+    this.password = await bcrypt.hash(this.password, 12);
+  }
   next();
 });
 
 userSchema.methods.comparePassword = async function (candidate: string): Promise<boolean> {
   if (!this.password) return false;
   return bcrypt.compare(candidate, this.password);
+};
+
+userSchema.methods.comparePortalCode = async function (candidate: string): Promise<boolean> {
+  if (!this.adminPortalCode) return false;
+  return bcrypt.compare(candidate, this.adminPortalCode);
 };
 
 userSchema.methods.isLocked = function (): boolean {

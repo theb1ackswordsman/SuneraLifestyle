@@ -20,15 +20,15 @@ export async function POST(req: NextRequest) {
       return unauthorized("Session expired. Please log in again.");
     }
 
-    const expectedCode = process.env.ADMIN_PORTAL_CODE;
-    if (!expectedCode || adminCode.trim() !== expectedCode.trim()) {
-      return forbidden("Invalid admin portal code.");
-    }
-
     await connectDB();
-    const user = await User.findById(pending.userId).select("+refreshTokens");
+    const user = await User.findById(pending.userId).select("+refreshTokens +adminPortalCode");
     if (!user || !user.isActive || user.role !== USER_ROLES.ADMIN) {
       return unauthorized("Admin account not found or disabled.");
+    }
+
+    const isValidCode = await user.comparePortalCode(adminCode.trim());
+    if (!isValidCode) {
+      return forbidden("Invalid admin portal code.");
     }
 
     const tokenPayload = {

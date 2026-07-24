@@ -44,10 +44,19 @@ function deriveBadge(p: ProductDetail | RelatedProduct): "new" | "sale" | "bests
 
 export function ProductView({ product, related }: { product: ProductDetail; related: RelatedProduct[] }) {
   const gallery = product.images.length ? product.images : [];
-  const sizes = product.variants
-    .filter((v) => v.size && v.stock > 0)
-    .map((v) => v.size as string)
-    .filter((s, i, arr) => arr.indexOf(s) === i); // dedupe
+
+  // Deduplicated variants with stock info
+  const variantSizes = product.variants
+    .filter((v) => v.size)
+    .reduce<Array<{ size: string; stock: number; price?: number }>>((acc, v) => {
+      if (!acc.find((x) => x.size === v.size)) {
+        acc.push({ size: v.size as string, stock: v.stock, price: v.price });
+      }
+      return acc;
+    }, []);
+
+  // Smart label: pack sizes are always "<number><unit>", clothing sizes are not
+  const variantLabel = variantSizes.some((v) => /^\d+\s*(ml|L|g|kg)$/i.test(v.size)) ? "Pack Size" : "Size";
 
   const badge = deriveBadge(product);
   const rating = product.reviewSummary.average;
@@ -58,15 +67,19 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   const { requireAuth } = useRequireAuth();
 
   const [activeImg, setActiveImg] = useState(0);
-  const [size, setSize] = useState(sizes[0] ?? "");
+  const [selectedSize, setSelectedSize] = useState(variantSizes[0]?.size ?? "");
   const [qty, setQty] = useState(1);
   const [wishlisted, setWishlisted] = useState(false);
   const [added, setAdded] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]>("Description");
 
+  // Price from selected variant (if it has an override), else base price
+  const activeVariant = variantSizes.find((v) => v.size === selectedSize);
+  const displayPrice = activeVariant?.price ?? product.basePrice;
+
   const discount =
-    product.compareAtPrice && product.compareAtPrice > product.basePrice
-      ? Math.round(((product.compareAtPrice - product.basePrice) / product.compareAtPrice) * 100)
+    product.compareAtPrice && product.compareAtPrice > displayPrice
+      ? Math.round(((product.compareAtPrice - displayPrice) / product.compareAtPrice) * 100)
       : null;
 
   function addToCart() {
@@ -97,9 +110,9 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
         </nav>
 
         {/* Main */}
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[2fr_3fr] lg:gap-12">
           {/* Gallery */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:max-w-sm">
             <motion.div
               key={activeImg}
               initial={{ opacity: 0.4 }}
@@ -166,8 +179,8 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
 
             {/* Price */}
             <div className="mt-5 flex flex-wrap items-baseline gap-3">
-              <span className="text-3xl font-black">{formatPrice(product.basePrice)}</span>
-              {product.compareAtPrice && (
+              <span className="text-3xl font-black">{formatPrice(displayPrice)}</span>
+              {product.compareAtPrice && product.compareAtPrice > displayPrice && (
                 <span className="text-lg text-muted-foreground line-through">
                   {formatPrice(product.compareAtPrice)}
                 </span>
@@ -194,25 +207,35 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               </ul>
             )}
 
-            {/* Size selector */}
-            {sizes.length > 0 && (
+            {/* Size / Pack selector */}
+            {variantSizes.length > 0 && (
               <div className="mt-6">
-                <p className="mb-2 text-sm font-semibold">Size</p>
+                <p className="mb-2 text-sm font-semibold">{variantLabel}</p>
                 <div className="flex flex-wrap gap-2">
-                  {sizes.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setSize(s)}
-                      className={cn(
-                        "min-w-11 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors",
-                        size === s
-                          ? "border-brand-emerald bg-brand-emerald/10 text-brand-emerald-dark"
-                          : "border-border hover:border-foreground/30"
-                      )}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                  {variantSizes.map((v) => {
+                    const oos = v.stock <= 0;
+                    return (
+                      <button
+                        key={v.size}
+                        onClick={() => !oos && setSelectedSize(v.size)}
+                        disabled={oos}
+                        title={oos ? "Out of stock" : undefined}
+                        className={cn(
+                          "relative min-w-11 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors",
+                          selectedSize === v.size && !oos
+                            ? "border-brand-emerald bg-brand-emerald/10 text-brand-emerald-dark"
+                            : oos
+                            ? "border-border bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                            : "border-border hover:border-foreground/30"
+                        )}
+                      >
+                        {v.size}
+                        {oos && (
+                          <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-muted-foreground/40" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

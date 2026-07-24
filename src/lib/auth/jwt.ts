@@ -1,8 +1,11 @@
 import { SignJWT, jwtVerify } from "jose";
 import type { AuthTokenPayload } from "@/types/auth.types";
 
-const accessSecret = new TextEncoder().encode(process.env.JWT_ACCESS_SECRET ?? "fallback-dev-secret-min-32-chars!!!");
-const refreshSecret = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET ?? "fallback-dev-refresh-secret-32c!!");
+if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+  throw new Error("JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be set in environment variables.");
+}
+const accessSecret  = new TextEncoder().encode(process.env.JWT_ACCESS_SECRET);
+const refreshSecret = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET);
 
 const ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES_IN ?? "15m";
 const REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN ?? "7d";

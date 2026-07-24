@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, Check, ArrowLeft, Sparkles, ImageIcon,
   Package, DollarSign, AlignLeft, BadgeCheck,
-  Upload, X, AlertCircle, CheckCircle2,
+  Upload, X, AlertCircle, CheckCircle2, Layers, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Category { _id: string; name: string; slug: string; parentId?: string | null }
+
+interface VariantRow { size: string; stock: string; price: string }
 
 interface FormData {
   name: string; slug: string; description: string; shortDescription: string;
@@ -30,6 +32,9 @@ const EMPTY: FormData = {
   isActive: true, isFeatured: false, isBestSeller: false, isNewArrival: true,
 };
 
+const CLOTHING_PRESETS  = ["XS", "S", "M", "L", "XL", "XXL", "2XL", "3XL", "28", "30", "32", "34", "36", "38", "40", "42", "44"];
+const AYURVEDIC_PRESETS = ["30ml", "50ml", "100ml", "200ml", "250ml", "500ml", "1L", "30g", "50g", "100g", "200g", "250g", "500g", "1kg"];
+
 function slugify(s: string) {
   return s.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
@@ -37,13 +42,10 @@ function slugify(s: string) {
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function ToastNotification({ toast, onClose }: { toast: Toast; onClose: () => void }) {
   return (
-    <div
-      className={cn(
-        "fixed bottom-6 right-6 z-999 flex items-start gap-3 rounded-2xl px-5 py-4 shadow-2xl text-white text-sm font-medium max-w-sm",
-        "animate-fade-up",
-        toast.type === "error" ? "bg-red-600" : "bg-[#1a5c14]"
-      )}
-    >
+    <div className={cn(
+      "fixed bottom-6 right-6 z-999 flex items-start gap-3 rounded-2xl px-5 py-4 shadow-2xl text-white text-sm font-medium max-w-sm animate-fade-up",
+      toast.type === "error" ? "bg-red-600" : "bg-[#1a5c14]"
+    )}>
       {toast.type === "error"
         ? <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
         : <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />}
@@ -56,11 +58,7 @@ function ToastNotification({ toast, onClose }: { toast: Toast; onClose: () => vo
 }
 
 // ─── Image Uploader ───────────────────────────────────────────────────────────
-function ImageUploader({
-  images,
-  onChange,
-  onToast,
-}: {
+function ImageUploader({ images, onChange, onToast }: {
   images: string[];
   onChange: (imgs: string[]) => void;
   onToast: (msg: string, type: "error" | "success") => void;
@@ -82,11 +80,8 @@ function ImageUploader({
       try {
         const res  = await fetch("/api/admin/upload", { method: "POST", body: fd });
         const json = await res.json();
-        if (json.success) {
-          results.push(json.data.url);
-        } else {
-          onToast(`Could not upload "${file.name}".`, "error");
-        }
+        if (json.success) results.push(json.data.url);
+        else onToast(`Could not upload "${file.name}".`, "error");
       } catch {
         onToast(`Upload failed for "${file.name}".`, "error");
       }
@@ -103,19 +98,22 @@ function ImageUploader({
   }
 
   function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(false);
+    e.preventDefault(); setDragOver(false);
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
     if (files.length) uploadFiles(files);
   }
 
-  function removeImage(idx: number) {
-    onChange(images.filter((_, i) => i !== idx));
+  function moveFirst(idx: number) {
+    const next = [...images];
+    const [item] = next.splice(idx, 1);
+    next.unshift(item);
+    onChange(next);
   }
+
+  function removeImage(idx: number) { onChange(images.filter((_, i) => i !== idx)); }
 
   return (
     <div className="space-y-4">
-      {/* Drop zone */}
       <div
         onClick={() => !uploading && inputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -123,18 +121,14 @@ function ImageUploader({
         onDrop={handleDrop}
         className={cn(
           "relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed py-10 transition-all",
-          dragOver
-            ? "border-[#1a5c14] bg-green-50"
-            : "border-gray-200 bg-gray-50 hover:border-[#1a5c14] hover:bg-green-50/40",
+          dragOver ? "border-[#1a5c14] bg-green-50" : "border-gray-200 bg-gray-50 hover:border-[#1a5c14] hover:bg-green-50/40",
           uploading && "pointer-events-none opacity-70"
         )}
       >
         {uploading ? (
           <>
             <Loader2 className="h-8 w-8 animate-spin text-[#1a5c14]" />
-            <p className="text-sm font-semibold text-gray-600">
-              Uploading {progress.done + 1} of {progress.total}…
-            </p>
+            <p className="text-sm font-semibold text-gray-600">Uploading {progress.done + 1} of {progress.total}…</p>
           </>
         ) : (
           <>
@@ -142,24 +136,14 @@ function ImageUploader({
               <Upload className="h-5 w-5 text-[#1a5c14]" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-semibold text-gray-700">
-                Click to upload <span className="text-[#1a5c14]">or drag &amp; drop</span>
-              </p>
-              <p className="mt-1 text-xs text-gray-400">PNG, JPG, WEBP — up to 10 MB each</p>
+              <p className="text-sm font-semibold text-gray-700">Click to upload <span className="text-[#1a5c14]">or drag &amp; drop</span></p>
+              <p className="mt-1 text-xs text-gray-400">PNG, JPG, WEBP — multiple images supported</p>
             </div>
           </>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={handleInputChange}
-        />
+        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleInputChange} />
       </div>
 
-      {/* Preview grid */}
       {images.length > 0 && (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
           {images.map((url, i) => (
@@ -167,17 +151,20 @@ function ImageUploader({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" className="h-full w-full object-cover" />
               {i === 0 && (
-                <span className="absolute left-1 top-1 rounded-md bg-[#1a5c14] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  Main
-                </span>
+                <span className="absolute left-1 top-1 rounded-md bg-[#1a5c14] px-1.5 py-0.5 text-[10px] font-bold text-white">Main</span>
               )}
-              <button
-                type="button"
-                onClick={() => removeImage(i)}
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white opacity-0 transition-opacity group-hover:opacity-100"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                {i !== 0 && (
+                  <button type="button" onClick={() => moveFirst(i)}
+                    className="rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-gray-700 hover:bg-gray-100">
+                    Set Main
+                  </button>
+                )}
+                <button type="button" onClick={() => removeImage(i)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -186,10 +173,113 @@ function ImageUploader({
   );
 }
 
-// ─── Section wrapper ──────────────────────────────────────────────────────────
-function Section({ icon: Icon, title, children }: {
-  icon: React.ElementType; title: string; children: React.ReactNode;
+// ─── Variants Section ─────────────────────────────────────────────────────────
+function VariantsSection({
+  categoryType, variants, onChange,
+}: {
+  categoryType: "clothing" | "ayurvedic" | null;
+  variants: VariantRow[];
+  onChange: (v: VariantRow[]) => void;
 }) {
+  const [custom, setCustom] = useState("");
+  const presets = categoryType === "clothing" ? CLOTHING_PRESETS : categoryType === "ayurvedic" ? AYURVEDIC_PRESETS : [];
+  const label   = categoryType === "clothing" ? "Size" : "Pack Size";
+
+  if (!categoryType) return (
+    <p className="text-sm text-gray-400 italic">Select a Clothing or Ayurvedic category above to enable size/pack variants.</p>
+  );
+
+  function toggle(size: string) {
+    const exists = variants.find((v) => v.size === size);
+    if (exists) onChange(variants.filter((v) => v.size !== size));
+    else onChange([...variants, { size, stock: "", price: "" }]);
+  }
+
+  function addCustom() {
+    const s = custom.trim();
+    if (!s || variants.find((v) => v.size === s)) return;
+    onChange([...variants, { size: s, stock: "", price: "" }]);
+    setCustom("");
+  }
+
+  function update(size: string, field: "stock" | "price", value: string) {
+    onChange(variants.map((v) => v.size === size ? { ...v, [field]: value } : v));
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Preset toggles */}
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">Quick Add {label}s</p>
+        <div className="flex flex-wrap gap-2">
+          {presets.map((s) => {
+            const active = Boolean(variants.find((v) => v.size === s));
+            return (
+              <button key={s} type="button" onClick={() => toggle(s)}
+                className={cn(
+                  "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all",
+                  active ? "border-[#1a5c14] bg-[#1a5c14] text-white" : "border-gray-200 bg-white text-gray-600 hover:border-[#1a5c14] hover:text-[#1a5c14]"
+                )}>
+                {active ? <><Check className="inline h-3 w-3 mr-1" />{s}</> : s}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Custom size */}
+      <div className="flex gap-2">
+        <input
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustom())}
+          placeholder={categoryType === "clothing" ? "e.g. 46, 4XL…" : "e.g. 750ml, 2kg…"}
+          className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
+        />
+        <button type="button" onClick={addCustom}
+          className="flex items-center gap-1.5 rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-colors">
+          <Plus className="h-4 w-4" /> Add
+        </button>
+      </div>
+
+      {/* Variant rows */}
+      {variants.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Set Stock &amp; Price per {label}</p>
+          <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+            <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-400">
+              <span>{label}</span><span>Stock *</span><span>Price ₹ (optional)</span><span></span>
+            </div>
+            {variants.map((v) => (
+              <div key={v.size} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 items-center px-4 py-3">
+                <span className="text-sm font-bold text-gray-800">{v.size}</span>
+                <input
+                  type="number" min="0" value={v.stock}
+                  onChange={(e) => update(v.size, "stock", e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#1a5c14] focus:outline-none"
+                />
+                <input
+                  type="number" min="0" step="0.01" value={v.price}
+                  onChange={(e) => update(v.size, "price", e.target.value)}
+                  placeholder="Same as base"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#1a5c14] focus:outline-none"
+                />
+                <button type="button" onClick={() => onChange(variants.filter((x) => x.size !== v.size))}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Section wrapper ──────────────────────────────────────────────────────────
+function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
       <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
@@ -204,15 +294,16 @@ function Section({ icon: Icon, title, children }: {
 interface Props { productId?: string }
 
 export default function ProductForm({ productId }: Props) {
-  const router  = useRouter();
-  const isEdit  = Boolean(productId);
+  const router = useRouter();
+  const isEdit = Boolean(productId);
 
-  const [form, setForm]               = useState<FormData>(EMPTY);
-  const [images, setImages]           = useState<string[]>([]);
-  const [categories, setCategories]   = useState<Category[]>([]);
-  const [saving, setSaving]           = useState(false);
+  const [form, setForm]             = useState<FormData>(EMPTY);
+  const [images, setImages]         = useState<string[]>([]);
+  const [variants, setVariants]     = useState<VariantRow[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [saving, setSaving]         = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(isEdit);
-  const [toast, setToast]             = useState<Toast | null>(null);
+  const [toast, setToast]           = useState<Toast | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function showToast(msg: string, type: "error" | "success" = "error") {
@@ -221,14 +312,12 @@ export default function ProductForm({ productId }: Props) {
     toastTimer.current = setTimeout(() => setToast(null), 4500);
   }
 
-  // Load categories
   useEffect(() => {
     fetch("/api/admin/categories")
       .then((r) => r.json())
       .then((json) => setCategories(json.data ?? []));
   }, []);
 
-  // Load product for edit
   const loadProduct = useCallback(async () => {
     if (!productId) return;
     setLoadingProduct(true);
@@ -257,6 +346,13 @@ export default function ProductForm({ productId }: Props) {
         isNewArrival:     p.isNewArrival ?? false,
       });
       setImages(p.images ?? []);
+      setVariants((p.variants ?? [])
+        .filter((v: { size?: string }) => v.size)
+        .map((v: { size: string; stock: number; price?: number }) => ({
+          size:  v.size,
+          stock: String(v.stock ?? 0),
+          price: v.price ? String(v.price) : "",
+        })));
     } finally {
       setLoadingProduct(false);
     }
@@ -272,6 +368,15 @@ export default function ProductForm({ productId }: Props) {
     setForm((f) => ({ ...f, name, ...(isEdit ? {} : { slug: slugify(name) }) }));
   }
 
+  // Detect category type
+  const selectedCat = categories.find((c) => c._id === form.category);
+  const parentCat   = selectedCat?.parentId
+    ? categories.find((c) => c._id === selectedCat.parentId)
+    : selectedCat;
+  const categoryType: "clothing" | "ayurvedic" | null =
+    parentCat?.slug === "clothes" ? "clothing" :
+    parentCat?.slug === "ayurvedic-products" ? "ayurvedic" : null;
+
   async function handleSave() {
     if (!form.name.trim())        { showToast("Product name is required.");        return; }
     if (!form.sku.trim())         { showToast("SKU is required.");                 return; }
@@ -280,6 +385,11 @@ export default function ProductForm({ productId }: Props) {
     if (!form.category)           { showToast("Please select a category.");         return; }
     if (!form.description.trim()) { showToast("Description is required.");          return; }
     if (images.length === 0)      { showToast("Please upload at least one image."); return; }
+
+    // Validate variant stocks
+    for (const v of variants) {
+      if (!v.stock.trim()) { showToast(`Please enter stock for size "${v.size}".`); return; }
+    }
 
     setSaving(true);
     try {
@@ -298,23 +408,23 @@ export default function ProductForm({ productId }: Props) {
         benefits:         form.benefits.split("\n").map((s) => s.trim()).filter(Boolean),
         ingredients:      form.ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
         images,
-        isActive:         form.isActive,
-        isFeatured:       form.isFeatured,
-        isBestSeller:     form.isBestSeller,
-        isNewArrival:     form.isNewArrival,
+        variants:         variants.map((v) => ({
+          sku:   `${form.sku.trim()}-${v.size.replace(/\s/g, "")}`,
+          size:  v.size,
+          stock: parseInt(v.stock, 10) || 0,
+          price: v.price ? parseFloat(v.price) : undefined,
+        })),
+        isActive:   form.isActive,
+        isFeatured: form.isFeatured,
+        isBestSeller: form.isBestSeller,
+        isNewArrival: form.isNewArrival,
       };
 
       const url    = isEdit ? `/api/admin/products/${productId}` : "/api/admin/products";
       const method = isEdit ? "PUT" : "POST";
-
-      const res  = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
+      const res    = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const json   = await res.json();
       if (!res.ok) { showToast(json.error ?? "Something went wrong.", "error"); return; }
-
       showToast(isEdit ? "Product updated!" : "Product created!", "success");
       setTimeout(() => router.push("/admin/products"), 1200);
     } finally {
@@ -326,114 +436,73 @@ export default function ProductForm({ productId }: Props) {
   const subsOf  = (id: string) => categories.filter((c) => c.parentId === id);
 
   if (loadingProduct) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-      </div>
-    );
+    return <div className="flex items-center justify-center py-32"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>;
   }
 
   const FLAGS = [
-    { key: "isActive"     as const, label: "Active",      sub: "Visible to shoppers",    active: "border-green-500 bg-green-50"   },
-    { key: "isFeatured"   as const, label: "Featured",    sub: "Shown on home page",     active: "border-amber-500 bg-amber-50"   },
-    { key: "isBestSeller" as const, label: "Best Seller", sub: "Shows bestseller badge", active: "border-[#1a5c14] bg-green-50"   },
-    { key: "isNewArrival" as const, label: "New Arrival", sub: "Shows 'New' badge",      active: "border-blue-500 bg-blue-50"     },
+    { key: "isActive"     as const, label: "Active",      sub: "Visible to shoppers",    active: "border-green-500 bg-green-50"  },
+    { key: "isFeatured"   as const, label: "Featured",    sub: "Shown on home page",     active: "border-amber-500 bg-amber-50"  },
+    { key: "isBestSeller" as const, label: "Best Seller", sub: "Shows bestseller badge", active: "border-[#1a5c14] bg-green-50"  },
+    { key: "isNewArrival" as const, label: "New Arrival", sub: "Shows 'New' badge",      active: "border-blue-500 bg-blue-50"    },
   ] as const;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-3xl space-y-6">
-      {/* ── Header ─────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/admin/products")}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
-        >
+        <button onClick={() => router.push("/admin/products")}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <h1 className="text-xl font-black text-gray-900">
-            {isEdit ? "Edit Product" : "Add Product"}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {isEdit ? "Update product details." : "Fill in the details to create a new product."}
-          </p>
+          <h1 className="text-xl font-black text-gray-900">{isEdit ? "Edit Product" : "Add Product"}</h1>
+          <p className="text-sm text-gray-500">{isEdit ? "Update product details." : "Fill in the details to create a new product."}</p>
         </div>
       </div>
 
-      {/* ── Labels & Visibility ────────────────────────── */}
+      {/* Labels & Visibility */}
       <Section icon={BadgeCheck} title="Labels & Visibility">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {FLAGS.map(({ key, label, sub, active }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => set(key, !form[key])}
-              className={cn(
-                "flex flex-col items-start gap-1 rounded-xl border-2 p-3 text-left transition-all",
-                form[key] ? active : "border-gray-200 bg-white hover:border-gray-300"
-              )}
-            >
+            <button key={key} type="button" onClick={() => set(key, !form[key])}
+              className={cn("flex flex-col items-start gap-1 rounded-xl border-2 p-3 text-left transition-all",
+                form[key] ? active : "border-gray-200 bg-white hover:border-gray-300")}>
               <span className="text-sm font-bold text-gray-900">{label}</span>
               <span className="text-[11px] text-gray-500">{sub}</span>
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-400">
-          &quot;On Sale&quot; badge appears automatically when Compare At Price is higher than Base Price.
-        </p>
+        <p className="text-xs text-gray-400">&quot;On Sale&quot; badge appears automatically when Compare At Price is higher than Base Price.</p>
       </Section>
 
-      {/* ── Basic Info ─────────────────────────────────── */}
+      {/* Basic Info */}
       <Section icon={Package} title="Basic Info">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Label>Product Name *</Label>
-            <Input
-              value={form.name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="e.g. Immunity Kadha 250ml"
-            />
+            <Input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Immunity Kadha 250ml" />
           </div>
           <div>
             <Label>Slug *</Label>
-            <Input
-              value={form.slug}
-              onChange={(e) => set("slug", slugify(e.target.value))}
-              placeholder="immunity-kadha-250ml"
-              mono
-            />
+            <Input value={form.slug} onChange={(e) => set("slug", slugify(e.target.value))} placeholder="immunity-kadha-250ml" mono />
           </div>
           <div>
             <Label>SKU *</Label>
-            <Input
-              value={form.sku}
-              onChange={(e) => set("sku", e.target.value)}
-              placeholder="SK-001"
-              mono
-            />
+            <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="SK-001" mono />
           </div>
           <div>
             <Label>Brand</Label>
-            <Input
-              value={form.brand}
-              onChange={(e) => set("brand", e.target.value)}
-              placeholder="SunEra Naturals"
-            />
+            <Input value={form.brand} onChange={(e) => set("brand", e.target.value)} placeholder="SunEra Naturals" />
           </div>
           <div>
             <Label>Category *</Label>
-            <select
-              value={form.category}
-              onChange={(e) => set("category", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
-            >
+            <select value={form.category} onChange={(e) => set("category", e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]">
               <option value="">— Select category —</option>
               {parents.map((p) => (
                 <optgroup key={p._id} label={p.name}>
                   {subsOf(p._id).length > 0
-                    ? subsOf(p._id).map((sub) => (
-                        <option key={sub._id} value={sub._id}>{sub.name}</option>
-                      ))
+                    ? subsOf(p._id).map((sub) => <option key={sub._id} value={sub._id}>{sub.name}</option>)
                     : <option value={p._id}>{p.name}</option>}
                 </optgroup>
               ))}
@@ -441,17 +510,13 @@ export default function ProductForm({ productId }: Props) {
           </div>
           <div className="sm:col-span-2">
             <Label>Short Description</Label>
-            <Input
-              value={form.shortDescription}
-              onChange={(e) => set("shortDescription", e.target.value)}
-              placeholder="One-line summary shown in product cards"
-              maxLength={200}
-            />
+            <Input value={form.shortDescription} onChange={(e) => set("shortDescription", e.target.value)}
+              placeholder="One-line summary shown in product cards" maxLength={200} />
           </div>
         </div>
       </Section>
 
-      {/* ── Pricing & Stock ────────────────────────────── */}
+      {/* Pricing & Stock */}
       <Section icon={DollarSign} title="Pricing & Stock">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <div>
@@ -466,83 +531,72 @@ export default function ProductForm({ productId }: Props) {
             <p className="mt-1 text-[11px] text-gray-400">Leave blank if not on sale.</p>
           </div>
           <div>
-            <Label>Stock *</Label>
+            <Label>Total Stock *</Label>
             <Input type="number" min="0" value={form.stock}
               onChange={(e) => set("stock", e.target.value)} placeholder="100" />
+            <p className="mt-1 text-[11px] text-gray-400">Overall inventory count.</p>
           </div>
         </div>
       </Section>
 
-      {/* ── Images ─────────────────────────────────────── */}
-      <Section icon={ImageIcon} title="Images">
+      {/* Images */}
+      <Section icon={ImageIcon} title="Product Images">
+        <p className="text-xs text-gray-400">Upload multiple images. Hover any image to set it as main or remove it.</p>
         <ImageUploader images={images} onChange={setImages} onToast={showToast} />
       </Section>
 
-      {/* ── Description ────────────────────────────────── */}
+      {/* Sizes / Variants */}
+      <Section icon={Layers} title="Sizes / Pack Options">
+        <VariantsSection categoryType={categoryType} variants={variants} onChange={setVariants} />
+      </Section>
+
+      {/* Description */}
       <Section icon={AlignLeft} title="Description">
         <div>
           <Label>Full Description *</Label>
-          <textarea
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            placeholder="Detailed product description…"
-            rows={5}
-            className="w-full resize-y rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
-          />
+          <textarea value={form.description} onChange={(e) => set("description", e.target.value)}
+            placeholder="Detailed product description…" rows={5}
+            className="w-full resize-y rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]" />
         </div>
       </Section>
 
-      {/* ── Product Details ────────────────────────────── */}
+      {/* Product Details */}
       <Section icon={Sparkles} title="Product Details (optional)">
         <div className="space-y-4">
           <div>
             <Label>Tags — comma separated</Label>
-            <Input value={form.tags}
-              onChange={(e) => set("tags", e.target.value)}
-              placeholder="ayurveda, immunity, herbal" />
+            <Input value={form.tags} onChange={(e) => set("tags", e.target.value)} placeholder="ayurveda, immunity, herbal" />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label>Benefits — one per line</Label>
-              <textarea value={form.benefits}
-                onChange={(e) => set("benefits", e.target.value)}
-                placeholder={"Boosts immunity\nImproves digestion"}
-                rows={4}
-                className="w-full resize-y rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
-              />
+              <textarea value={form.benefits} onChange={(e) => set("benefits", e.target.value)}
+                placeholder={"Boosts immunity\nImproves digestion"} rows={4}
+                className="w-full resize-y rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]" />
             </div>
             <div>
               <Label>Ingredients — one per line</Label>
-              <textarea value={form.ingredients}
-                onChange={(e) => set("ingredients", e.target.value)}
-                placeholder={"Giloy\nTulsi\nAdaloda"}
-                rows={4}
-                className="w-full resize-y rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
-              />
+              <textarea value={form.ingredients} onChange={(e) => set("ingredients", e.target.value)}
+                placeholder={"Giloy\nTulsi\nAdaloda"} rows={4}
+                className="w-full resize-y rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]" />
             </div>
           </div>
         </div>
       </Section>
 
-      {/* ── Save ───────────────────────────────────────── */}
+      {/* Save */}
       <div className="flex items-center gap-3 pb-8">
-        <button
-          onClick={() => router.push("/admin/products")}
-          className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-        >
+        <button onClick={() => router.push("/admin/products")}
+          className="rounded-xl border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
           Cancel
         </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 rounded-xl bg-[#1a5c14] px-8 py-2.5 text-sm font-bold text-white hover:bg-[#103a0c] transition-colors disabled:opacity-60"
-        >
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 rounded-xl bg-[#1a5c14] px-8 py-2.5 text-sm font-bold text-white hover:bg-[#103a0c] transition-colors disabled:opacity-60">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
           {isEdit ? "Save Changes" : "Create Product"}
         </button>
       </div>
 
-      {/* ── Toast ──────────────────────────────────────── */}
       {toast && <ToastNotification toast={toast} onClose={() => setToast(null)} />}
     </div>
   );
@@ -550,24 +604,14 @@ export default function ProductForm({ productId }: Props) {
 
 // ─── Small field helpers ──────────────────────────────────────────────────────
 function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500">
-      {children}
-    </label>
-  );
+  return <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500">{children}</label>;
 }
 
-function Input({
-  mono, className, ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { mono?: boolean }) {
+function Input({ mono, className, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { mono?: boolean }) {
   return (
-    <input
-      {...props}
-      className={cn(
-        "w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]",
-        mono && "font-mono text-xs",
-        className
-      )}
-    />
+    <input {...props} className={cn(
+      "w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]",
+      mono && "font-mono text-xs", className
+    )} />
   );
 }

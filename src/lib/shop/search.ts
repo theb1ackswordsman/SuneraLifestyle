@@ -516,6 +516,9 @@ export async function suggestProducts(q: string): Promise<{
   const atlasEnabled = process.env.ATLAS_SEARCH_ENABLED === "true";
   const nameRegex = new RegExp(safe, "i");
 
+  // Rank 0 = name starts with query, 1 = name contains query, 2 = tag/brand/desc match
+  const nameStartsRegex = new RegExp(`^${safe}`, "i");
+
   const regexPipeline: PipelineStage[] = [
     {
       $match: {
@@ -529,7 +532,20 @@ export async function suggestProducts(q: string): Promise<{
         ],
       },
     },
-    { $sort: { salesCount: -1, isFeatured: -1 } },
+    {
+      $addFields: {
+        _relevance: {
+          $switch: {
+            branches: [
+              { case: { $regexMatch: { input: "$name", regex: nameStartsRegex.source, options: "i" } }, then: 0 },
+              { case: { $regexMatch: { input: "$name", regex: nameRegex.source, options: "i" } }, then: 1 },
+            ],
+            default: 2,
+          },
+        },
+      },
+    },
+    { $sort: { _relevance: 1, salesCount: -1, isFeatured: -1 } },
     { $limit: PRODUCT_LIMIT },
     CATEGORY_LOOKUP,
     CATEGORY_UNWIND,

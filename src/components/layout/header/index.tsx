@@ -515,25 +515,6 @@ function SearchOverlay({ visible, onClose }: { visible: boolean; onClose: () => 
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14 }}
                   className="mt-3 overflow-hidden rounded-2xl bg-white shadow-2xl">
 
-                  {keywords.length > 0 && (
-                    <>
-                      <div className="divide-y divide-gray-50">
-                        {keywords.slice(0, 5).map((kw, i) => {
-                          const kwIdx = results.length + i;
-                          return (
-                            <button key={kw} onClick={() => goToSearch(kw)}
-                              className={cn("flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors",
-                                focused === kwIdx ? "bg-[#1a5c14]/10" : "hover:bg-[#1a5c14]/5")}>
-                              <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                              <span className="truncate">{highlight(kw, query)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {results.length > 0 && <div className="mx-4 border-t border-gray-100" />}
-                    </>
-                  )}
-
                   {results.length > 0 && (
                     <>
                       <div className="px-4 pt-3 pb-1">
@@ -565,6 +546,25 @@ function SearchOverlay({ visible, onClose }: { visible: boolean; onClose: () => 
                             </div>
                           </button>
                         ))}
+                      </div>
+                    </>
+                  )}
+
+                  {keywords.length > 0 && (
+                    <>
+                      {results.length > 0 && <div className="mx-4 border-t border-gray-100" />}
+                      <div className="divide-y divide-gray-50">
+                        {keywords.slice(0, 5).map((kw, i) => {
+                          const kwIdx = results.length + i;
+                          return (
+                            <button key={kw} onClick={() => goToSearch(kw)}
+                              className={cn("flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors",
+                                focused === kwIdx ? "bg-[#1a5c14]/10" : "hover:bg-[#1a5c14]/5")}>
+                              <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                              <span className="truncate">{highlight(kw, query)}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </>
                   )}
