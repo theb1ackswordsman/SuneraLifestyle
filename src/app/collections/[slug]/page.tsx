@@ -80,7 +80,7 @@ async function getCollectionWithProducts(slug: string) {
   const collection = await Collection.findOne({ slug, isActive: true }).lean() as RawCollection | null;
   if (!collection) return null;
 
-  let productQuery: Record<string, unknown> = { isActive: true, deletedAt: null };
+  const productQuery: Record<string, unknown> = { isActive: true, deletedAt: null };
 
   if (collection.productAssignment === "manual" && collection.manualProductIds?.length) {
     productQuery._id = { $in: collection.manualProductIds };

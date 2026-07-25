@@ -52,7 +52,6 @@ export function ProductCard({
 }: ProductCardProps) {
   const outOfStock = stock !== undefined && stock <= 0;
   const [wishlisted,  setWishlisted]  = useState(false);
-  const [addedToCart, setAddedToCart] = useState(false);
   const { requireAuth } = useRequireAuth();
 
   // Hydrate wishlist state from localStorage after mount
@@ -69,16 +68,6 @@ export function ProductCard({
       const added = toggleWishlist(id);
       setWishlisted(added);
       onWishlist?.(id);
-    });
-  }
-
-  function handleAddToCart(e: React.MouseEvent) {
-    e.preventDefault();
-    requireAuth(() => {
-      addToCart(id);
-      setAddedToCart(true);
-      onAddToCart?.(id);
-      setTimeout(() => setAddedToCart(false), 1500);
     });
   }
 

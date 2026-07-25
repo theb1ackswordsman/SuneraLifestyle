@@ -526,6 +526,7 @@ function SearchOverlay({ visible, onClose }: { visible: boolean; onClose: () => 
                               focused === i ? "bg-gray-50" : "hover:bg-gray-50/80")}>
                             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gray-100">
                               {item.images[0]
+                                // eslint-disable-next-line @next/next/no-img-element
                                 ? <img src={item.images[0]} alt={item.name} className="h-full w-full object-cover" />
                                 : <div className="flex h-full w-full items-center justify-center"><Package className="h-5 w-5 text-gray-300" /></div>}
                             </div>
