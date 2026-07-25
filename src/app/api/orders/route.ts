@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
     items,            // [{ productId, name, image, slug, price, quantity }]
     shippingAddress,  // { name, phone, addressLine1, addressLine2, city, state, pincode }
     paymentMethod,    // "cod" | "razorpay"
-    subtotal,
     couponCode,
     couponDiscount,
     shippingFee,

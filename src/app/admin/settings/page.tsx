@@ -3,14 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Settings,
-  Mail,
   Phone,
-  MapPin,
   Instagram,
   Twitter,
   Facebook,
   Youtube,
-  MessageCircle,
   Truck,
   FileText,
   Building2,

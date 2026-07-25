@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Package, ShoppingBag, ChevronDown, ChevronRight,
-  Check, Truck, MapPin, CreditCard, ExternalLink, Clock, AlertCircle,
+  Check, Truck, MapPin, CreditCard, ExternalLink, AlertCircle,
   RotateCcw, X, Upload, Loader2,
 } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";

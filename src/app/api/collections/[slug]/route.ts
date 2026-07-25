@@ -17,7 +17,7 @@ export async function GET(
     const collection = await Collection.findOne({ slug, isActive: true }).lean();
     if (!collection) return notFound("Collection not found.");
 
-    let productQuery: Record<string, unknown> = { isActive: true, deletedAt: null };
+    const productQuery: Record<string, unknown> = { isActive: true, deletedAt: null };
 
     if (collection.productAssignment === "manual" && collection.manualProductIds?.length) {
       productQuery._id = { $in: collection.manualProductIds };

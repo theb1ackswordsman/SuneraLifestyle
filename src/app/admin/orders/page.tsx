@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   ShoppingBag, ChevronLeft, ChevronRight, Zap, Truck, BadgeCheck,
-  Eye, X, MapPin, CreditCard, Clock, Check, Package,
+  Eye, X, MapPin, Clock, Check, Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORDER_STATUS } from "@/constants";
