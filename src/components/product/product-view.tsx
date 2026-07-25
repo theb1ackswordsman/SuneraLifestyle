@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/shared/product-card";
 import type { ProductDetail, RelatedProduct } from "@/lib/shop/query-product";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { addToCart as cartAdd, toggleWishlist, isWishlisted } from "@/lib/cart-wishlist-store";
 import { ReviewSection } from "@/components/product/review-section";
 
 function Stars({ rating, className }: { rating: number; className?: string }) {
@@ -64,7 +65,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   const outOfStock = product.stock <= 0;
 
   const router = useRouter();
-  const { requireAuth } = useRequireAuth();
+  const { user, requireAuth } = useRequireAuth();
 
   const [activeImg, setActiveImg] = useState(0);
   const [selectedSize, setSelectedSize] = useState(variantSizes[0]?.size ?? "");
@@ -72,6 +73,9 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   const [wishlisted, setWishlisted] = useState(false);
   const [added, setAdded] = useState(false);
   const [tab, setTab] = useState<(typeof TABS)[number]>("Description");
+
+  // Hydrate wishlist state from localStorage after mount
+  useEffect(() => { setWishlisted(isWishlisted(String(product._id))); }, [product._id]);
 
   // Price from selected variant (if it has an override), else base price
   const activeVariant = variantSizes.find((v) => v.size === selectedSize);
@@ -83,18 +87,22 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
       : null;
 
   function addToCart() {
-    requireAuth(() => {
-      setAdded(true);
-      setTimeout(() => setAdded(false), 1800);
-    });
+    if (!user) { requireAuth(() => {}); return; }
+    cartAdd(String(product._id), qty);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1800);
   }
 
   function handleWishlist() {
-    requireAuth(() => setWishlisted((w) => !w));
+    if (!user) { requireAuth(() => {}); return; }
+    const added = toggleWishlist(String(product._id));
+    setWishlisted(added);
   }
 
   function handleBuyNow() {
-    requireAuth(() => router.push("/checkout"));
+    if (!user) { requireAuth(() => {}); return; }
+    cartAdd(String(product._id), qty);
+    router.push("/checkout");
   }
 
   return (

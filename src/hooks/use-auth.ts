@@ -55,6 +55,8 @@ export function useRequireAuth() {
   const user = useAuth();
 
   function requireAuth(action: () => void) {
+    // Still loading — don't redirect yet, just wait
+    if (_cache === "loading") return;
     if (user) {
       action();
     } else {
