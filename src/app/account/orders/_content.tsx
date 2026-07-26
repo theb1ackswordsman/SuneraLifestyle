@@ -706,11 +706,25 @@ function OrderCard({
                 {order.paymentMethod === "razorpay" ? "Online (Razorpay)" : order.paymentMethod}
               </p>
               <span className={cn("mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold uppercase",
-                order.paymentStatus === "paid"    ? "bg-green-100 text-green-700" :
-                order.paymentStatus === "pending" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
+                order.paymentStatus === "paid"                 ? "bg-green-100 text-green-700"  :
+                order.paymentStatus === "pending"              ? "bg-yellow-100 text-yellow-700" :
+                order.paymentStatus === "pending_verification" ? "bg-orange-100 text-orange-700" :
+                order.paymentStatus === "failed"               ? "bg-red-100 text-red-700"       :
+                order.paymentStatus === "refunded"             ? "bg-purple-100 text-purple-700" :
+                "bg-gray-100 text-gray-700"
               )}>
-                {order.paymentStatus}
+                {order.paymentStatus === "paid"                 ? "Payment Successful"     :
+                 order.paymentStatus === "pending"              ? "Payment Pending"         :
+                 order.paymentStatus === "pending_verification" ? "Under Verification"      :
+                 order.paymentStatus === "failed"               ? "Payment Failed"          :
+                 order.paymentStatus === "refunded"             ? "Refunded"                :
+                 order.paymentStatus}
               </span>
+              {order.paymentStatus === "pending_verification" && (
+                <p className="mt-1 text-[10px] text-orange-600 leading-tight">
+                  Our team is verifying your payment. You will be notified once confirmed.
+                </p>
+              )}
             </div>
           </div>
         </div>

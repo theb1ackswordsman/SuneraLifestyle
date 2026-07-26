@@ -45,11 +45,12 @@ export type OrderStatus = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
 
 // Payment statuses
 export const PAYMENT_STATUS = {
-  PENDING: "pending",
-  PAID: "paid",
-  FAILED: "failed",
-  REFUNDED: "refunded",
-  PARTIALLY_REFUNDED: "partially_refunded",
+  PENDING:              "pending",
+  PAID:                 "paid",
+  FAILED:               "failed",
+  REFUNDED:             "refunded",
+  PARTIALLY_REFUNDED:   "partially_refunded",
+  PENDING_VERIFICATION: "pending_verification",
 } as const;
 
 export type PaymentStatus = (typeof PAYMENT_STATUS)[keyof typeof PAYMENT_STATUS];

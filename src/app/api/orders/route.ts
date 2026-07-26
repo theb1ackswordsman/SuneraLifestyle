@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { connectDB } from "@/lib/db/connection";
 import { Order, IOrderDocument } from "@/models/order.model";
+import { Payment } from "@/models/payment.model";
 import { Product } from "@/models/product.model";
 import { User } from "@/models/user.model";
 import { getServerSession } from "@/lib/auth/session";
@@ -17,7 +18,10 @@ function generateOrderNumber(): string {
   return "SUN" + Date.now().toString().slice(-7) + Math.floor(100 + Math.random() * 900);
 }
 
-// Lazily import Razorpay so the server doesn't crash if the package is absent
+function generatePaymentRef(): string {
+  return "PAY" + Date.now().toString().slice(-9) + Math.floor(10 + Math.random() * 90);
+}
+
 async function getRazorpay() {
   const RazorpayLib = (await import("razorpay")).default;
   return new RazorpayLib({
@@ -26,6 +30,8 @@ async function getRazorpay() {
   });
 }
 
+// ── POST — Place order ──────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession();
   if (!session.isAuthenticated || !session.user)
@@ -33,9 +39,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const {
-    items,            // [{ productId, name, image, slug, price, quantity }]
-    shippingAddress,  // { name, phone, addressLine1, addressLine2, city, state, pincode }
-    paymentMethod,    // "cod" | "razorpay"
+    items,
+    shippingAddress,
+    paymentMethod,
     couponCode,
     couponDiscount,
     shippingFee,
@@ -47,8 +53,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  // ── SERVER-SIDE PRICE VALIDATION ───────────────────────────────────────────
-  // Never trust client-submitted prices. Fetch real prices from DB and recalculate.
+  // ── Server-side price & stock validation ────────────────────────────────────
   const productIds = (items as Array<{ productId: string; quantity: number }>).map((i) => i.productId);
   const dbProducts = await Product.find({ _id: { $in: productIds }, isActive: true, deletedAt: null })
     .select("_id basePrice stock")
@@ -57,38 +62,43 @@ export async function POST(req: NextRequest) {
   const priceMap = new Map(dbProducts.map((p) => [String(p._id), p.basePrice]));
   const stockMap = new Map(dbProducts.map((p) => [String(p._id), p.stock]));
 
-  const validatedItems: Array<{ productId: string; name: string; image: string; slug: string; price: number; compareAtPrice?: number; quantity: number }> = [];
-  for (const item of items as Array<{ productId: string; name: string; image: string; slug: string; price: number; compareAtPrice?: number; quantity: number }>) {
+  const validatedItems: Array<{
+    productId: string; name: string; image: string; slug: string;
+    price: number; compareAtPrice?: number; quantity: number;
+  }> = [];
+
+  for (const item of items as Array<{
+    productId: string; name: string; image: string; slug: string;
+    price: number; compareAtPrice?: number; quantity: number;
+  }>) {
     const dbPrice = priceMap.get(item.productId);
     if (dbPrice === undefined)
       return NextResponse.json({ error: `Product not found: ${item.productId}` }, { status: 400 });
-
     const available = stockMap.get(item.productId) ?? 0;
     if (available < item.quantity)
       return NextResponse.json({ error: `"${item.name}" is out of stock.` }, { status: 400 });
-
-    validatedItems.push({ ...item, price: dbPrice }); // overwrite with DB price
+    validatedItems.push({ ...item, price: dbPrice });
   }
 
-  const validatedSubtotal  = validatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const validatedShipping  = shippingFee ?? 0;
-  const validatedDiscount  = couponDiscount ?? 0;
-  const validatedTotal     = validatedSubtotal + validatedShipping - validatedDiscount;
+  const validatedSubtotal = validatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const validatedShipping = shippingFee ?? 0;
+  const validatedDiscount = couponDiscount ?? 0;
+  const validatedTotal    = validatedSubtotal + validatedShipping - validatedDiscount;
 
   const orderNumber = generateOrderNumber();
 
-  // ── For COD: create order immediately ─────────────────────────────────────
+  // ── COD ────────────────────────────────────────────────────────────────────
   if (paymentMethod === "cod") {
     const order = await Order.create({
       orderNumber,
-      userId: session.user._id,
-      items: validatedItems,
+      userId:         session.user._id,
+      items:          validatedItems,
       shippingAddress: { ...shippingAddress, country: "India", type: "home" },
-      paymentMethod: PAYMENT_METHODS.COD,
-      paymentStatus: PAYMENT_STATUS.PENDING,
-      status: ORDER_STATUS.CONFIRMED,
+      paymentMethod:  PAYMENT_METHODS.COD,
+      paymentStatus:  PAYMENT_STATUS.PENDING,
+      status:         ORDER_STATUS.CONFIRMED,
       subtotal:       validatedSubtotal,
-      couponCode:     couponCode   ?? undefined,
+      couponCode:     couponCode ?? undefined,
       couponDiscount: validatedDiscount,
       discount:       validatedDiscount,
       shippingFee:    validatedShipping,
@@ -98,7 +108,21 @@ export async function POST(req: NextRequest) {
       estimatedDelivery: new Date(Date.now() + 5 * 86400000),
     });
 
-    // Decrement stock atomically
+    // Create a payment record for COD orders too (for completeness)
+    await Payment.create({
+      paymentRef:    generatePaymentRef(),
+      orderId:       order._id,
+      orderNumber,
+      userId:        session.user._id,
+      amount:        validatedTotal,
+      currency:      "INR",
+      paymentMethod: PAYMENT_METHODS.COD,
+      gatewayName:   "cod",
+      status:        "pending",
+      logs: [{ action: "Payment record created for COD order", performedBy: "system", at: new Date() }],
+    });
+
+    // Decrement stock
     await Promise.all(
       validatedItems.map((item) =>
         Product.findByIdAndUpdate(item.productId, { $inc: { stock: -item.quantity } })
@@ -109,18 +133,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, orderNumber: order.orderNumber, orderId: String(order._id) }, { status: 201 });
   }
 
-  // ── For Razorpay: create DB order (pending) + Razorpay order ──────────────
+  // ── Razorpay ────────────────────────────────────────────────────────────────
   if (paymentMethod === "razorpay") {
     const dbOrder = await Order.create({
       orderNumber,
-      userId: session.user._id,
-      items: validatedItems,
+      userId:         session.user._id,
+      items:          validatedItems,
       shippingAddress: { ...shippingAddress, country: "India", type: "home" },
-      paymentMethod: PAYMENT_METHODS.RAZORPAY,
-      paymentStatus: PAYMENT_STATUS.PENDING,
-      status: ORDER_STATUS.PENDING,
+      paymentMethod:  PAYMENT_METHODS.RAZORPAY,
+      paymentStatus:  PAYMENT_STATUS.PENDING,
+      status:         ORDER_STATUS.PENDING,
       subtotal:       validatedSubtotal,
-      couponCode:     couponCode   ?? undefined,
+      couponCode:     couponCode ?? undefined,
       couponDiscount: validatedDiscount,
       discount:       validatedDiscount,
       shippingFee:    validatedShipping,
@@ -133,26 +157,43 @@ export async function POST(req: NextRequest) {
     try {
       const rzp = await getRazorpay();
       const rzpOrder = await rzp.orders.create({
-        amount:   Math.round(total * 100), // paise
+        amount:   Math.round(validatedTotal * 100),
         currency: "INR",
         receipt:  orderNumber,
         notes:    { orderId: String(dbOrder._id), orderNumber },
       });
 
-      // Store razorpay order id
-      await Order.findByIdAndUpdate(dbOrder._id, { razorpayOrderId: rzpOrder.id });
+      // Create payment record
+      const payment = await Payment.create({
+        paymentRef:      generatePaymentRef(),
+        orderId:         dbOrder._id,
+        orderNumber,
+        userId:          session.user._id,
+        amount:          validatedTotal,
+        currency:        "INR",
+        paymentMethod:   PAYMENT_METHODS.RAZORPAY,
+        gatewayName:     "razorpay",
+        gatewayOrderId:  rzpOrder.id,
+        status:          "pending",
+        logs: [{ action: "Razorpay order created", performedBy: "system", at: new Date() }],
+      });
+
+      // Link payment to order
+      await Order.findByIdAndUpdate(dbOrder._id, {
+        razorpayOrderId: rzpOrder.id,
+        paymentId: payment._id,
+      });
 
       return NextResponse.json({
-        success:        true,
-        orderId:        String(dbOrder._id),
+        success:         true,
+        orderId:         String(dbOrder._id),
         orderNumber,
         razorpayOrderId: rzpOrder.id,
-        amount:         rzpOrder.amount,
-        currency:       rzpOrder.currency,
-        keyId:          process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount:          rzpOrder.amount,
+        currency:        rzpOrder.currency,
+        keyId:           process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       }, { status: 201 });
     } catch (err) {
-      // Razorpay order creation failed — delete the DB order to avoid orphans
       await Order.findByIdAndDelete(dbOrder._id);
       console.error("[Razorpay] order create error:", err);
       return NextResponse.json({ error: "Payment gateway error. Please try again." }, { status: 502 });
@@ -162,7 +203,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ error: "Invalid payment method." }, { status: 400 });
 }
 
-// Verify Razorpay payment signature (inline for simplicity)
+// ── PUT — Client-side payment verification (fallback when webhook hasn't arrived) ──
+
 export async function PUT(req: NextRequest) {
   const session = await getServerSession();
   if (!session.isAuthenticated)
@@ -174,76 +216,138 @@ export async function PUT(req: NextRequest) {
 
   await connectDB();
 
-  // Verify the order exists, belongs to this user, and the razorpayOrderId matches
   const existingOrder = await Order.findOne({
     _id:             orderId,
     userId:          session.user!._id,
     razorpayOrderId: razorpayOrderId,
-    paymentStatus:   PAYMENT_STATUS.PENDING,
   }).lean();
 
   if (!existingOrder)
-    return NextResponse.json({ error: "Order not found or already processed." }, { status: 404 });
+    return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
-  // Verify Razorpay signature
+  // If webhook already confirmed this payment — return success immediately
+  if (existingOrder.paymentStatus === PAYMENT_STATUS.PAID) {
+    return NextResponse.json({ success: true, orderNumber: existingOrder.orderNumber, status: "confirmed" });
+  }
+
+  // If already set to pending_verification by an earlier client attempt — do not re-verify
+  if (existingOrder.paymentStatus === PAYMENT_STATUS.PENDING_VERIFICATION) {
+    return NextResponse.json({ success: true, orderNumber: existingOrder.orderNumber, status: "pending_verification" });
+  }
+
+  // Verify Razorpay HMAC signature
   const secret = process.env.RAZORPAY_KEY_SECRET!;
   const expectedSig = crypto
     .createHmac("sha256", secret)
     .update(`${razorpayOrderId}|${razorpayPaymentId}`)
     .digest("hex");
 
-  if (!crypto.timingSafeEqual(Buffer.from(expectedSig, "hex"), Buffer.from(razorpaySignature, "hex")))
-    return NextResponse.json({ error: "Payment signature invalid. Please contact support." }, { status: 400 });
+  let sigValid = false;
+  try {
+    sigValid = crypto.timingSafeEqual(
+      Buffer.from(expectedSig, "hex"),
+      Buffer.from(razorpaySignature, "hex")
+    );
+  } catch {
+    sigValid = false;
+  }
 
-  const order = await Order.findByIdAndUpdate(
-    orderId,
-    {
-      $set: {
-        razorpayPaymentId,
-        razorpaySignature,
-        paymentStatus: PAYMENT_STATUS.PAID,
-        status: ORDER_STATUS.CONFIRMED,
-      },
+  // Find or locate the payment record
+  const payment = await Payment.findOne({ orderId: existingOrder._id });
+
+  const attemptEntry = {
+    attemptedAt:      new Date(),
+    source:           "client" as const,
+    gatewayPaymentId: razorpayPaymentId,
+    signature:        razorpaySignature,
+    status:           sigValid ? "signature_valid" : "signature_invalid",
+  };
+
+  if (sigValid) {
+    // ── Signature valid → confirm order ──────────────────────────────────────
+    const [order] = await Promise.all([
+      Order.findByIdAndUpdate(
+        orderId,
+        {
+          $set: {
+            razorpayPaymentId,
+            razorpaySignature,
+            paymentStatus: PAYMENT_STATUS.PAID,
+            status:        ORDER_STATUS.CONFIRMED,
+          },
+          $push: {
+            timeline: {
+              status:    ORDER_STATUS.CONFIRMED,
+              timestamp: new Date(),
+              message:   `Payment confirmed via client verification. Payment ID: ${razorpayPaymentId}`,
+            },
+          },
+        },
+        { new: true }
+      ),
+      payment && Payment.findByIdAndUpdate(payment._id, {
+        $set:  { gatewayPaymentId: razorpayPaymentId, signature: razorpaySignature, status: "success" },
+        $push: {
+          attempts: attemptEntry,
+          logs:     { action: "Payment confirmed via client signature verification", performedBy: "system", at: new Date() },
+        },
+      }),
+    ]);
+
+    if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
+
+    // Decrement stock
+    await Promise.all(
+      (order.items as unknown as Array<{ productId: unknown; quantity: number }>).map((item) =>
+        Product.findByIdAndUpdate(item.productId, { $inc: { stock: -item.quantity } })
+          .catch((e: unknown) => console.error("[Stock] decrement failed for", item.productId, e))
+      )
+    );
+
+    sendOrderEmail(order, session.user!.email).catch((e) => console.error("[Order email] failed:", e));
+
+    return NextResponse.json({ success: true, orderNumber: order.orderNumber, status: "confirmed" });
+  }
+
+  // ── Signature invalid — payment handler was called so money may have been deducted ──
+  // Mark as pending_verification; admin will verify via Razorpay dashboard
+  await Promise.all([
+    Order.findByIdAndUpdate(orderId, {
+      $set: { paymentStatus: PAYMENT_STATUS.PENDING_VERIFICATION, razorpayPaymentId },
       $push: {
         timeline: {
-          status: ORDER_STATUS.CONFIRMED,
+          status:    ORDER_STATUS.PENDING,
           timestamp: new Date(),
-          message: `Payment confirmed via Razorpay. Payment ID: ${razorpayPaymentId}`,
+          message:   `Payment verification pending. Gateway ID: ${razorpayPaymentId}. Admin will verify manually.`,
         },
       },
-    },
-    { new: true }
-  );
+    }),
+    payment && Payment.findByIdAndUpdate(payment._id, {
+      $set:  { gatewayPaymentId: razorpayPaymentId, status: "pending_verification" },
+      $push: {
+        attempts: attemptEntry,
+        logs:     { action: "Signature verification failed; marked pending_verification for admin review", performedBy: "system", at: new Date() },
+      },
+    }),
+  ]);
 
-  if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
-
-  // Decrement stock atomically now that payment is confirmed
-  await Promise.all(
-    (order.items as unknown as Array<{ productId: unknown; quantity: number }>).map((item) =>
-      Product.findByIdAndUpdate(item.productId, { $inc: { stock: -item.quantity } })
-        .catch((e: unknown) => console.error("[Stock] decrement failed for", item.productId, e))
-    )
-  );
-
-  // Send confirmation email (non-blocking)
-  sendOrderEmail(order, session.user!.email).catch((e) =>
-    console.error("[Order email] failed:", e)
-  );
-
-  return NextResponse.json({ success: true, orderNumber: order.orderNumber });
+  return NextResponse.json({
+    success: true,
+    orderNumber: existingOrder.orderNumber,
+    status: "pending_verification",
+  });
 }
+
+// ── Helper: send order confirmation email ───────────────────────────────────
 
 async function sendOrderEmail(order: IOrderDocument | null, toEmail: string) {
   if (!order || !toEmail) return;
 
-  // Get display name: try DB, fall back to shipping address name
   let displayName = "Valued Customer";
   try {
     const user = await User.findById(order.userId).select("name").lean();
     if (user?.name) displayName = user.name;
-  } catch {
-    // non-fatal — use shipping address name
-  }
+  } catch { /* non-fatal */ }
   const addr = order.shippingAddress as Record<string, string>;
   if (displayName === "Valued Customer" && addr.name) displayName = addr.name;
 

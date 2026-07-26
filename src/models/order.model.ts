@@ -69,6 +69,7 @@ export interface IOrderDocument extends Document {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
+  paymentId?: mongoose.Types.ObjectId;
   invoiceUrl?: string;
   deletedAt?: Date;
   createdAt: Date;
@@ -101,6 +102,7 @@ const orderSchema = new Schema<IOrderDocument>(
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },
     razorpaySignature: { type: String },
+    paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
     invoiceUrl: { type: String },
     deletedAt: { type: Date },
   },

@@ -363,9 +363,10 @@ export function CheckoutContent() {
   const [showCouponPicker, setShowCouponPicker] = useState(false);
   const [applied,          setApplied]          = useState<AppliedCoupon | null>(null);
 
-  const [placing,   setPlacing]   = useState(false);
-  const [orderDone, setOrderDone] = useState<string | null>(null);
-  const [globalErr, setGlobalErr] = useState("");
+  const [placing,          setPlacing]          = useState(false);
+  const [orderDone,        setOrderDone]        = useState<string | null>(null);
+  const [orderUnderReview, setOrderUnderReview] = useState<string | null>(null);
+  const [globalErr,        setGlobalErr]        = useState("");
 
   // Pending Razorpay session — stored when user dismisses the modal so they can retry
   const [pendingRzp, setPendingRzp] = useState<{
@@ -493,26 +494,43 @@ export function CheckoutContent() {
       },
       handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
         setPlacing(true);
-        const verifyRes  = await fetch("/api/orders", {
-          method:  "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId:           session.orderId,
-            razorpayOrderId:   response.razorpay_order_id,
-            razorpayPaymentId: response.razorpay_payment_id,
-            razorpaySignature: response.razorpay_signature,
-          }),
-        });
-        const verifyJson = await verifyRes.json();
-        if (!verifyRes.ok) {
-          setGlobalErr(verifyJson.error ?? "Payment verification failed. Please contact support.");
-          setPendingRzp(session); // allow retry
-          setPlacing(false);
-          return;
+        try {
+          const verifyRes  = await fetch("/api/orders", {
+            method:  "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId:           session.orderId,
+              razorpayOrderId:   response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            }),
+          });
+          const verifyJson = await verifyRes.json();
+
+          if (!verifyRes.ok) {
+            // Hard error (order not found, etc.) — allow retry
+            setGlobalErr(verifyJson.error ?? "Payment verification failed. Please contact support.");
+            setPendingRzp(session);
+            setPlacing(false);
+            return;
+          }
+
+          // Payment was attempted — clear cart regardless of outcome
+          setPendingRzp(null);
+          clearCart();
+
+          if (verifyJson.data?.status === "pending_verification" || verifyJson.status === "pending_verification") {
+            // Money may have been deducted but signature couldn't be verified — show under-review screen
+            setOrderUnderReview(verifyJson.data?.orderNumber ?? verifyJson.orderNumber ?? session.orderNumber);
+          } else {
+            setOrderDone(verifyJson.data?.orderNumber ?? verifyJson.orderNumber);
+          }
+        } catch {
+          // Network failure after payment attempt — treat as pending_verification
+          setPendingRzp(null);
+          clearCart();
+          setOrderUnderReview(session.orderNumber);
         }
-        setPendingRzp(null);
-        clearCart();
-        setOrderDone(verifyJson.orderNumber);
         setPlacing(false);
       },
     });
@@ -571,6 +589,36 @@ export function CheckoutContent() {
   }
 
   // ── Guards ────────────────────────────────────────────────────────────────
+  // ── Under Verification screen ─────────────────────────────────────────────
+  if (orderUnderReview) {
+    return (
+      <div className="pt-20 lg:pt-24">
+        <div className="container-padded flex flex-col items-center justify-center py-28 text-center max-w-lg mx-auto">
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-orange-100">
+            <ShieldCheck className="h-10 w-10 text-orange-500" />
+          </div>
+          <h1 className="text-2xl font-black text-gray-900">Payment Under Verification</h1>
+          <p className="mt-3 text-sm text-gray-500 leading-relaxed">
+            Your payment for order <span className="font-mono font-bold text-gray-800">#{orderUnderReview}</span> is being verified.
+            If your bank has deducted the amount, our team will confirm the order within 24 hours.
+          </p>
+          <div className="mt-6 w-full rounded-xl border border-orange-200 bg-orange-50 p-4 text-left">
+            <p className="text-xs font-bold text-orange-800 mb-2">What happens next?</p>
+            <ul className="space-y-1.5 text-xs text-orange-700">
+              <li>• Our team will verify the payment with Razorpay</li>
+              <li>• You will receive an email once the order is confirmed</li>
+              <li>• Do not attempt to pay again — it may result in a duplicate charge</li>
+              <li>• Contact support if you have not heard back within 24 hours</li>
+            </ul>
+          </div>
+          <Link href="/account/orders" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#1a5c14] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#103a0c] transition-colors">
+            View My Orders
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!cartLoading && !lines.length && !orderDone) {
     return (
       <div className="pt-20 lg:pt-24">
