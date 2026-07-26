@@ -5,6 +5,9 @@ import {
   MessageSquare, HeadphonesIcon, ChevronRight, User, RotateCcw,
 } from "lucide-react";
 import { SignOutButton } from "./_sign-out-button";
+import { getServerSession } from "@/lib/auth/session";
+import { connectDB } from "@/lib/db/connection";
+import { User as UserModel } from "@/models/user.model";
 
 const ACCOUNT_LINKS = [
   {
@@ -65,19 +68,42 @@ const ACCOUNT_LINKS = [
   },
 ];
 
-export default function AccountPage() {
+export default async function AccountPage() {
+  let userName = "";
+  let userEmail = "";
+
+  try {
+    const session = await getServerSession();
+    if (session.user?._id) {
+      await connectDB();
+      const dbUser = await UserModel.findById(session.user._id).select("name email").lean() as { name?: string; email?: string } | null;
+      userName  = dbUser?.name  ?? "";
+      userEmail = dbUser?.email ?? session.user.email ?? "";
+    }
+  } catch { /* show generic header if DB fails */ }
+
+  const initials = userName
+    ? userName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+    : "";
+
   return (
     <ShopLayout>
       <div className="container-padded pt-32 pb-12">
         {/* Header */}
         <div className="mb-10 flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#1a5c14]/10">
-            <User className="h-8 w-8 text-[#1a5c14]" />
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#1a5c14]/10">
+            {initials ? (
+              <span className="text-xl font-black text-[#1a5c14]">{initials}</span>
+            ) : (
+              <User className="h-8 w-8 text-[#1a5c14]" />
+            )}
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-foreground">My Account</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Manage your orders, addresses and preferences.
+          <div className="min-w-0">
+            <h1 className="text-2xl font-black text-foreground truncate">
+              {userName || "My Account"}
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground truncate">
+              {userEmail || "Manage your orders, addresses and preferences."}
             </p>
           </div>
         </div>

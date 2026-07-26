@@ -97,6 +97,20 @@ export default function AdminDashboard() {
         </Link>
       </div>
 
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-3">
+        {[
+          { label: "Add Product",    href: "/admin/products/new", color: "bg-[#1a5c14] text-white hover:bg-[#103a0c]" },
+          { label: "View Orders",    href: "/admin/orders",        color: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" },
+          { label: "See Customers",  href: "/admin/customers",     color: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" },
+          { label: "Manage Coupons", href: "/admin/coupons",       color: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" },
+        ].map(({ label, href, color }) => (
+          <Link key={href} href={href} className={cn("rounded-lg px-4 py-2 text-sm font-semibold transition-colors", color)}>
+            {label}
+          </Link>
+        ))}
+      </div>
+
       {/* Stats */}
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -206,22 +220,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div>
-        <h2 className="text-sm font-bold text-gray-900 mb-3">Quick Actions</h2>
-        <div className="flex flex-wrap gap-3">
-          {[
-            { label: "Add Product",   href: "/admin/products/new",   color: "bg-[#1a5c14] text-white hover:bg-[#103a0c]" },
-            { label: "View Orders",   href: "/admin/orders",          color: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" },
-            { label: "See Customers", href: "/admin/customers",       color: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" },
-            { label: "Manage Coupons",href: "/admin/coupons",         color: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" },
-          ].map(({ label, href, color }) => (
-            <Link key={href} href={href} className={cn("rounded-lg px-4 py-2 text-sm font-semibold transition-colors", color)}>
-              {label}
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

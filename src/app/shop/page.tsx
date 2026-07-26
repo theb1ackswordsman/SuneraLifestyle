@@ -153,6 +153,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                       slug={product.slug}
                       price={product.basePrice}
                       compareAtPrice={product.compareAtPrice}
+                      fromPrice={product.minVariantPrice}
                       rating={product.reviewSummary.average}
                       reviewCount={product.reviewSummary.count}
                       badge={getBadge(product)}

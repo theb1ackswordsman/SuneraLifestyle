@@ -16,6 +16,7 @@ interface ProductCardProps {
   slug: string;
   price: number;
   compareAtPrice?: number;
+  fromPrice?: number;
   rating: number;
   reviewCount: number;
   badge?: "new" | "sale" | "bestseller" | "featured";
@@ -40,6 +41,7 @@ export function ProductCard({
   slug,
   price,
   compareAtPrice,
+  fromPrice,
   rating,
   reviewCount,
   badge,
@@ -166,7 +168,11 @@ export function ProductCard({
 
           {/* Price */}
           <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-foreground">{formatPrice(price)}</span>
+            <span className="text-base font-bold text-foreground">
+              {fromPrice !== undefined && fromPrice < price
+                ? <>From {formatPrice(fromPrice)}</>
+                : formatPrice(price)}
+            </span>
             {compareAtPrice && compareAtPrice > price && (
               <span className="text-sm text-muted-foreground line-through">
                 {formatPrice(compareAtPrice)}

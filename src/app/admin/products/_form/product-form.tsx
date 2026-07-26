@@ -63,10 +63,13 @@ function ImageUploader({ images, onChange, onToast }: {
   onChange: (imgs: string[]) => void;
   onToast: (msg: string, type: "error" | "success") => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress]   = useState({ done: 0, total: 0 });
-  const [dragOver, setDragOver]   = useState(false);
+  const inputRef                        = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading]       = useState(false);
+  const [progress, setProgress]         = useState({ done: 0, total: 0 });
+  const [dropZoneOver, setDropZoneOver] = useState(false);
+  // For drag-to-reorder
+  const [dragIdx, setDragIdx]           = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx]   = useState<number | null>(null);
 
   async function uploadFiles(files: File[]) {
     if (!files.length) return;
@@ -97,31 +100,56 @@ function ImageUploader({ images, onChange, onToast }: {
     uploadFiles(files);
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault(); setDragOver(false);
+  function handleDropZone(e: React.DragEvent) {
+    e.preventDefault(); setDropZoneOver(false);
+    // Ignore if it's an image tile being reordered (no files in dataTransfer)
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
     if (files.length) uploadFiles(files);
   }
 
-  function moveFirst(idx: number) {
-    const next = [...images];
-    const [item] = next.splice(idx, 1);
-    next.unshift(item);
-    onChange(next);
+  function removeImage(idx: number) { onChange(images.filter((_, i) => i !== idx)); }
+
+  // ── Drag-to-reorder handlers ──
+  function onImgDragStart(e: React.DragEvent, idx: number) {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    // Prevent drop zone from firing while reordering
+    e.dataTransfer.setData("reorder", "1");
   }
 
-  function removeImage(idx: number) { onChange(images.filter((_, i) => i !== idx)); }
+  function onImgDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverIdx !== idx) setDragOverIdx(idx);
+  }
+
+  function onImgDrop(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragIdx === null || dragIdx === idx) { resetDrag(); return; }
+    const next = [...images];
+    const [item] = next.splice(dragIdx, 1);
+    next.splice(idx, 0, item);
+    onChange(next);
+    resetDrag();
+  }
+
+  function resetDrag() { setDragIdx(null); setDragOverIdx(null); }
 
   return (
     <div className="space-y-4">
+      {/* Upload drop zone */}
       <div
         onClick={() => !uploading && inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!e.dataTransfer.types.includes("reorder")) setDropZoneOver(true);
+        }}
+        onDragLeave={() => setDropZoneOver(false)}
+        onDrop={handleDropZone}
         className={cn(
           "relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed py-10 transition-all",
-          dragOver ? "border-[#1a5c14] bg-green-50" : "border-gray-200 bg-gray-50 hover:border-[#1a5c14] hover:bg-green-50/40",
+          dropZoneOver ? "border-[#1a5c14] bg-green-50" : "border-gray-200 bg-gray-50 hover:border-[#1a5c14] hover:bg-green-50/40",
           uploading && "pointer-events-none opacity-70"
         )}
       >
@@ -145,29 +173,40 @@ function ImageUploader({ images, onChange, onToast }: {
       </div>
 
       {images.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-          {images.map((url, i) => (
-            <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="h-full w-full object-cover" />
-              {i === 0 && (
-                <span className="absolute left-1 top-1 rounded-md bg-[#1a5c14] px-1.5 py-0.5 text-[10px] font-bold text-white">Main</span>
-              )}
-              <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-                {i !== 0 && (
-                  <button type="button" onClick={() => moveFirst(i)}
-                    className="rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-gray-700 hover:bg-gray-100">
-                    Set Main
-                  </button>
+        <>
+          <p className="text-xs text-gray-400">Drag images to reorder — the first image is shown as the main photo.</p>
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+            {images.map((url, i) => (
+              <div
+                key={url + i}
+                draggable
+                onDragStart={(e) => onImgDragStart(e, i)}
+                onDragOver={(e) => onImgDragOver(e, i)}
+                onDrop={(e) => onImgDrop(e, i)}
+                onDragEnd={resetDrag}
+                className={cn(
+                  "group relative aspect-square overflow-hidden rounded-xl border-2 bg-gray-100 cursor-grab active:cursor-grabbing transition-all select-none",
+                  dragOverIdx === i && dragIdx !== i
+                    ? "border-[#1a5c14] scale-105 shadow-lg"
+                    : "border-gray-200",
+                  dragIdx === i && "opacity-40 scale-95"
                 )}
-                <button type="button" onClick={() => removeImage(i)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white">
-                  <X className="h-3.5 w-3.5" />
-                </button>
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="h-full w-full object-cover pointer-events-none" />
+                {i === 0 && (
+                  <span className="absolute left-1 top-1 rounded-md bg-[#1a5c14] px-1.5 py-0.5 text-[10px] font-bold text-white">Main</span>
+                )}
+                <div className="absolute inset-0 flex items-end justify-end p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => removeImage(i)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-red-600 text-white shadow-md">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -175,13 +214,18 @@ function ImageUploader({ images, onChange, onToast }: {
 
 // ─── Variants Section ─────────────────────────────────────────────────────────
 function VariantsSection({
-  categoryType, variants, onChange,
+  categoryType, variants, onChange, variantErrors, onClearVariantError,
 }: {
   categoryType: "clothing" | "ayurvedic" | null;
   variants: VariantRow[];
   onChange: (v: VariantRow[]) => void;
+  variantErrors?: Set<string>;
+  onClearVariantError?: (size: string) => void;
 }) {
   const [custom, setCustom] = useState("");
+  // Tracks which sizes have their price override input open
+  const [customPriceSizes, setCustomPriceSizes] = useState<Set<string>>(new Set());
+
   const presets = categoryType === "clothing" ? CLOTHING_PRESETS : categoryType === "ayurvedic" ? AYURVEDIC_PRESETS : [];
   const label   = categoryType === "clothing" ? "Size" : "Pack Size";
 
@@ -191,8 +235,12 @@ function VariantsSection({
 
   function toggle(size: string) {
     const exists = variants.find((v) => v.size === size);
-    if (exists) onChange(variants.filter((v) => v.size !== size));
-    else onChange([...variants, { size, stock: "", price: "" }]);
+    if (exists) {
+      onChange(variants.filter((v) => v.size !== size));
+      setCustomPriceSizes((prev) => { const next = new Set(prev); next.delete(size); return next; });
+    } else {
+      onChange([...variants, { size, stock: "", price: "" }]);
+    }
   }
 
   function addCustom() {
@@ -204,6 +252,15 @@ function VariantsSection({
 
   function update(size: string, field: "stock" | "price", value: string) {
     onChange(variants.map((v) => v.size === size ? { ...v, [field]: value } : v));
+  }
+
+  function enableCustomPrice(size: string) {
+    setCustomPriceSizes((prev) => new Set(prev).add(size));
+  }
+
+  function clearCustomPrice(size: string) {
+    setCustomPriceSizes((prev) => { const next = new Set(prev); next.delete(size); return next; });
+    update(size, "price", "");
   }
 
   return (
@@ -247,30 +304,61 @@ function VariantsSection({
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Set Stock &amp; Price per {label}</p>
           <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
-            <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-400">
-              <span>{label}</span><span>Stock *</span><span>Price ₹ (optional)</span><span></span>
+            <div className="grid grid-cols-[1fr_1fr_1.5fr_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-400">
+              <span>{label}</span><span>Stock *</span><span>Price ₹</span><span></span>
             </div>
-            {variants.map((v) => (
-              <div key={v.size} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 items-center px-4 py-3">
-                <span className="text-sm font-bold text-gray-800">{v.size}</span>
-                <input
-                  type="number" min="0" value={v.stock}
-                  onChange={(e) => update(v.size, "stock", e.target.value)}
-                  placeholder="0"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#1a5c14] focus:outline-none"
-                />
-                <input
-                  type="number" min="0" step="0.01" value={v.price}
-                  onChange={(e) => update(v.size, "price", e.target.value)}
-                  placeholder="Same as base"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#1a5c14] focus:outline-none"
-                />
-                <button type="button" onClick={() => onChange(variants.filter((x) => x.size !== v.size))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+            {variants.map((v) => {
+              const isCustom = customPriceSizes.has(v.size) || v.price !== "";
+              const hasStockErr = variantErrors?.has(v.size);
+              return (
+                <div id={`variant-row-${v.size}`} key={v.size} className="grid grid-cols-[1fr_1fr_1.5fr_auto] gap-3 items-center px-4 py-3">
+                  <span className={cn("text-sm font-bold", hasStockErr ? "text-red-600" : "text-gray-800")}>{v.size}</span>
+                  <div>
+                    <input
+                      type="number" min="0" value={v.stock}
+                      onChange={(e) => { update(v.size, "stock", e.target.value); onClearVariantError?.(v.size); }}
+                      placeholder="0"
+                      className={cn(
+                        "w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1",
+                        hasStockErr
+                          ? "border border-red-400 focus:border-red-500 focus:ring-red-400"
+                          : "border border-gray-200 focus:border-[#1a5c14] focus:ring-[#1a5c14]"
+                      )}
+                    />
+                    {hasStockErr && <p className="mt-0.5 text-[10px] font-medium text-red-500">Stock is required</p>}
+                  </div>
+                  {isCustom ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number" min="0" step="0.01" value={v.price}
+                        onChange={(e) => update(v.size, "price", e.target.value)}
+                        placeholder="Enter price"
+                        // eslint-disable-next-line jsx-a11y/no-autofocus
+                        autoFocus={customPriceSizes.has(v.size) && v.price === ""}
+                        className="w-full rounded-lg border border-[#1a5c14] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
+                      />
+                      <button type="button" onClick={() => clearCustomPrice(v.size)} title="Reset to selling price"
+                        className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => enableCustomPrice(v.size)}
+                      className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-500 hover:border-[#1a5c14] hover:text-[#1a5c14] transition-all">
+                      <Check className="h-3 w-3 text-green-600 shrink-0" />
+                      Same as selling price &nbsp;·&nbsp; <span className="underline">Set price</span>
+                    </button>
+                  )}
+                  <button type="button" onClick={() => {
+                    onChange(variants.filter((x) => x.size !== v.size));
+                    setCustomPriceSizes((prev) => { const next = new Set(prev); next.delete(v.size); return next; });
+                  }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -304,12 +392,29 @@ export default function ProductForm({ productId }: Props) {
   const [saving, setSaving]         = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(isEdit);
   const [toast, setToast]           = useState<Toast | null>(null);
+  const [errors, setErrors]         = useState<Record<string, string>>({});
+  const [variantErrors, setVariantErrors] = useState<Set<string>>(new Set());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function showToast(msg: string, type: "error" | "success" = "error") {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ msg, type });
     toastTimer.current = setTimeout(() => setToast(null), 4500);
+  }
+
+  function scrollToField(id: string) {
+    setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+  }
+
+  function clearError(key: string) {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -362,10 +467,12 @@ export default function ProductForm({ productId }: Props) {
 
   function set<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key as string);
   }
 
   function handleNameChange(name: string) {
     setForm((f) => ({ ...f, name, ...(isEdit ? {} : { slug: slugify(name) }) }));
+    clearError("name");
   }
 
   // Detect category type
@@ -378,18 +485,29 @@ export default function ProductForm({ productId }: Props) {
     parentCat?.slug === "ayurvedic-products" ? "ayurvedic" : null;
 
   async function handleSave() {
-    if (!form.name.trim())        { showToast("Product name is required.");        return; }
-    if (!form.sku.trim())         { showToast("SKU is required.");                 return; }
-    if (!form.basePrice.trim())   { showToast("Base price is required.");           return; }
-    if (!form.stock.trim())       { showToast("Stock quantity is required.");       return; }
-    if (!form.category)           { showToast("Please select a category.");         return; }
-    if (!form.description.trim()) { showToast("Description is required.");          return; }
-    if (images.length === 0)      { showToast("Please upload at least one image."); return; }
+    const errs: Record<string, string> = {};
+    if (!form.name.trim())      errs.name        = "Product name is required.";
+    if (!form.sku.trim())       errs.sku         = "Product code is required.";
+    if (!form.basePrice.trim()) errs.basePrice   = "Selling price is required.";
+    else if (form.compareAtPrice && parseFloat(form.basePrice) > parseFloat(form.compareAtPrice))
+                                errs.basePrice   = "Selling price cannot be higher than MRP.";
+    if (variants.length === 0 && !form.stock.trim()) errs.stock = "Stock quantity is required.";
+    if (!form.category)         errs.category    = "Please select a category.";
+    if (!form.description.trim()) errs.description = "Description is required.";
+    if (images.length === 0)    errs.images      = "Please upload at least one image.";
 
-    // Validate variant stocks
-    for (const v of variants) {
-      if (!v.stock.trim()) { showToast(`Please enter stock for size "${v.size}".`); return; }
+    const vErrs = new Set<string>(variants.filter((v) => !v.stock.trim()).map((v) => v.size));
+
+    if (Object.keys(errs).length > 0 || vErrs.size > 0) {
+      setErrors(errs);
+      setVariantErrors(vErrs);
+      const firstKey = Object.keys(errs)[0];
+      if (firstKey)        scrollToField(`field-${firstKey}`);
+      else if (vErrs.size) scrollToField(`variant-row-${[...vErrs][0]}`);
+      return;
     }
+    setErrors({});
+    setVariantErrors(new Set());
 
     setSaving(true);
     try {
@@ -401,7 +519,9 @@ export default function ProductForm({ productId }: Props) {
         category:         form.category,
         basePrice:        parseFloat(form.basePrice),
         compareAtPrice:   form.compareAtPrice ? parseFloat(form.compareAtPrice) : undefined,
-        stock:            parseInt(form.stock, 10),
+        stock: variants.length > 0
+          ? variants.reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0)
+          : parseInt(form.stock, 10),
         sku:              form.sku.trim(),
         brand:            form.brand.trim() || undefined,
         tags:             form.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean),
@@ -472,7 +592,7 @@ export default function ProductForm({ productId }: Props) {
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-400">&quot;On Sale&quot; badge appears automatically when Compare At Price is higher than Base Price.</p>
+        <p className="text-xs text-gray-400">&quot;Sale&quot; badge appears automatically when MRP is higher than Selling Price.</p>
       </Section>
 
       {/* Basic Info */}
@@ -480,15 +600,19 @@ export default function ProductForm({ productId }: Props) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Label>Product Name *</Label>
-            <Input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Immunity Kadha 250ml" />
+            <Input id="field-name" value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Immunity Kadha 250ml"
+              className={errors.name ? "border-red-400 focus:border-red-500 focus:ring-red-400" : ""} />
+            {errors.name && <FieldError msg={errors.name} />}
           </div>
           <div>
-            <Label>Slug *</Label>
+            <Label>Page URL *</Label>
             <Input value={form.slug} onChange={(e) => set("slug", slugify(e.target.value))} placeholder="immunity-kadha-250ml" mono />
           </div>
           <div>
-            <Label>SKU *</Label>
-            <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="SK-001" mono />
+            <Label>Product Code *</Label>
+            <Input id="field-sku" value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="SK-001" mono
+              className={errors.sku ? "border-red-400 focus:border-red-500 focus:ring-red-400" : ""} />
+            {errors.sku && <FieldError msg={errors.sku} />}
           </div>
           <div>
             <Label>Brand</Label>
@@ -496,8 +620,13 @@ export default function ProductForm({ productId }: Props) {
           </div>
           <div>
             <Label>Category *</Label>
-            <select value={form.category} onChange={(e) => set("category", e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]">
+            <select id="field-category" value={form.category} onChange={(e) => set("category", e.target.value)}
+              className={cn(
+                "w-full rounded-xl border bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-1",
+                errors.category
+                  ? "border-red-400 focus:border-red-500 focus:ring-red-400"
+                  : "border-gray-200 focus:border-[#1a5c14] focus:ring-[#1a5c14]"
+              )}>
               <option value="">— Select category —</option>
               {parents.map((p) => (
                 <optgroup key={p._id} label={p.name}>
@@ -507,6 +636,7 @@ export default function ProductForm({ productId }: Props) {
                 </optgroup>
               ))}
             </select>
+            {errors.category && <FieldError msg={errors.category} />}
           </div>
           <div className="sm:col-span-2">
             <Label>Short Description</Label>
@@ -520,43 +650,89 @@ export default function ProductForm({ productId }: Props) {
       <Section icon={DollarSign} title="Pricing & Stock">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <div>
-            <Label>Base Price (₹) *</Label>
-            <Input type="number" min="0" step="0.01" value={form.basePrice}
-              onChange={(e) => set("basePrice", e.target.value)} placeholder="499" />
+            <Label>Selling Price (₹) *</Label>
+            <Input
+              id="field-basePrice"
+              type="number" min="0" step="0.01" value={form.basePrice}
+              onChange={(e) => set("basePrice", e.target.value)} placeholder="499"
+              className={cn(
+                (errors.basePrice || (form.compareAtPrice && form.basePrice && parseFloat(form.basePrice) > parseFloat(form.compareAtPrice)))
+                  ? "border-red-400 focus:border-red-500 focus:ring-red-400"
+                  : ""
+              )}
+            />
+            {errors.basePrice
+              ? <FieldError msg={errors.basePrice} />
+              : form.compareAtPrice && form.basePrice && parseFloat(form.basePrice) > parseFloat(form.compareAtPrice) && (
+                <p className="mt-1 text-[11px] text-red-500 font-medium flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  Selling price cannot be higher than MRP
+                </p>
+              )}
           </div>
           <div>
-            <Label>Compare At Price (₹)</Label>
+            <Label>MRP / Original Price (₹)</Label>
             <Input type="number" min="0" step="0.01" value={form.compareAtPrice}
               onChange={(e) => set("compareAtPrice", e.target.value)} placeholder="699" />
-            <p className="mt-1 text-[11px] text-gray-400">Leave blank if not on sale.</p>
+            <p className="mt-1 text-[11px] text-gray-400">Leave blank if there is no discount.</p>
           </div>
-          <div>
-            <Label>Total Stock *</Label>
-            <Input type="number" min="0" value={form.stock}
-              onChange={(e) => set("stock", e.target.value)} placeholder="100" />
-            <p className="mt-1 text-[11px] text-gray-400">Overall inventory count.</p>
-          </div>
+          {variants.length === 0 ? (
+            <div>
+              <Label>Total Stock *</Label>
+              <Input id="field-stock" type="number" min="0" value={form.stock}
+                onChange={(e) => set("stock", e.target.value)} placeholder="100"
+                className={errors.stock ? "border-red-400 focus:border-red-500 focus:ring-red-400" : ""} />
+              {errors.stock ? <FieldError msg={errors.stock} /> : <p className="mt-1 text-[11px] text-gray-400">How many units you have available.</p>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#1a5c14]" />
+              <div>
+                <p className="text-xs font-bold text-[#1a5c14]">Stock is counted per size/pack</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Total: {variants.reduce((s, v) => s + (parseInt(v.stock, 10) || 0), 0)} units
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </Section>
 
       {/* Images */}
       <Section icon={ImageIcon} title="Product Images">
         <p className="text-xs text-gray-400">Upload multiple images. Hover any image to set it as main or remove it.</p>
-        <ImageUploader images={images} onChange={setImages} onToast={showToast} />
+        <div id="field-images">
+          <ImageUploader images={images} onChange={(imgs) => { setImages(imgs); clearError("images"); }} onToast={showToast} />
+          {errors.images && <FieldError msg={errors.images} />}
+        </div>
       </Section>
 
       {/* Sizes / Variants */}
       <Section icon={Layers} title="Sizes / Pack Options">
-        <VariantsSection categoryType={categoryType} variants={variants} onChange={setVariants} />
+        <VariantsSection
+          categoryType={categoryType}
+          variants={variants}
+          onChange={setVariants}
+          variantErrors={variantErrors}
+          onClearVariantError={(size) =>
+            setVariantErrors((prev) => { const next = new Set(prev); next.delete(size); return next; })
+          }
+        />
       </Section>
 
       {/* Description */}
       <Section icon={AlignLeft} title="Description">
         <div>
           <Label>Full Description *</Label>
-          <textarea value={form.description} onChange={(e) => set("description", e.target.value)}
+          <textarea id="field-description" value={form.description} onChange={(e) => set("description", e.target.value)}
             placeholder="Detailed product description…" rows={5}
-            className="w-full resize-y rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]" />
+            className={cn(
+              "w-full resize-y rounded-xl border px-4 py-2.5 text-sm focus:outline-none focus:ring-1",
+              errors.description
+                ? "border-red-400 focus:border-red-500 focus:ring-red-400"
+                : "border-gray-200 focus:border-[#1a5c14] focus:ring-[#1a5c14]"
+            )} />
+          {errors.description && <FieldError msg={errors.description} />}
         </div>
       </Section>
 
@@ -613,5 +789,14 @@ function Input({ mono, className, ...props }: React.InputHTMLAttributes<HTMLInpu
       "w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]",
       mono && "font-mono text-xs", className
     )} />
+  );
+}
+
+function FieldError({ msg }: { msg: string }) {
+  return (
+    <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-red-500">
+      <AlertCircle className="h-3 w-3 shrink-0" />
+      {msg}
+    </p>
   );
 }

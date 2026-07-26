@@ -66,6 +66,13 @@ export async function GET(req: NextRequest) {
           basePrice: 1,
           isActive:  1,
           images:    { $slice: ["$images", 1] },
+          variants:  {
+            $map: {
+              input: { $ifNull: ["$variants", []] },
+              as: "v",
+              in: { sku: "$$v.sku", size: "$$v.size", stock: "$$v.stock", price: "$$v.price" },
+            },
+          },
           category: {
             $let: {
               vars: { cat: { $arrayElemAt: ["$categoryData", 0] } },
@@ -99,7 +106,7 @@ export async function PATCH(req: NextRequest) {
     if (!isAdmin(req)) return forbidden();
     await connectDB();
 
-    const body = (await req.json()) as { productId?: string; stock?: unknown };
+    const body = (await req.json()) as { productId?: string; stock?: unknown; variantSku?: string };
 
     if (!body.productId || !mongoose.Types.ObjectId.isValid(body.productId)) {
       return badRequest("Valid productId is required.");
@@ -108,6 +115,23 @@ export async function PATCH(req: NextRequest) {
     const stock = Number(body.stock);
     if (!Number.isFinite(stock) || stock < 0) {
       return badRequest("Stock must be a non-negative number.");
+    }
+
+    if (body.variantSku) {
+      // Per-variant stock update: update variant and recalculate product total
+      const product = await Product.findById(body.productId);
+      if (!product) return badRequest("Product not found.");
+
+      const variants = product.variants as Array<{ sku: string; stock: number }>;
+      const idx = variants.findIndex((v) => v.sku === body.variantSku);
+      if (idx === -1) return badRequest("Variant SKU not found on this product.");
+
+      variants[idx].stock = Math.floor(stock);
+      const productTotalStock = variants.reduce((sum, v) => sum + (v.stock ?? 0), 0);
+      product.stock = productTotalStock;
+      await product.save();
+
+      return ok({ productId: String(product._id), variantSku: body.variantSku, variantStock: Math.floor(stock), productStock: productTotalStock });
     }
 
     const updated = await Product.findByIdAndUpdate(

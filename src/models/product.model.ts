@@ -8,7 +8,7 @@ const variantSchema = new Schema(
     colorHex: { type: String },
     flavor: { type: String },
     weight: { type: String },
-    price: { type: Number, required: true, min: 0 },
+    price: { type: Number, min: 0 },
     compareAtPrice: { type: Number, min: 0 },
     stock: { type: Number, required: true, min: 0, default: 0 },
     images: [{ type: String }],
@@ -142,6 +142,11 @@ productSchema.index({ isFeatured: 1, isActive: 1 });
 productSchema.index({ isBestSeller: 1, isActive: 1 });
 productSchema.index({ isNewArrival: 1, isActive: 1, createdAt: -1 });
 productSchema.index({ name: "text", description: "text", tags: "text", brand: "text" });
+
+// In development, clear the cached model so schema changes take effect without a full restart
+if (process.env.NODE_ENV !== "production") {
+  delete mongoose.models.Product;
+}
 
 export const Product: Model<IProductDocument> =
   mongoose.models.Product ?? mongoose.model<IProductDocument>("Product", productSchema);

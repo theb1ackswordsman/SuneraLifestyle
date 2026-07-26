@@ -24,6 +24,7 @@ export interface ProductListItem {
   slug: string;
   basePrice: number;
   compareAtPrice?: number;
+  minVariantPrice?: number;
   images: string[];
   stock: number;
   reviewSummary: { average: number; count: number };
@@ -31,6 +32,7 @@ export interface ProductListItem {
   isBestSeller: boolean;
   isFeatured: boolean;
   category: { _id: string; name: string; slug: string };
+  variants?: { price?: number }[];
 }
 
 export interface ProductQueryResult {
@@ -124,6 +126,7 @@ export async function queryProducts(opts: ProductQuery = {}): Promise<ProductQue
               "reviewSummary.count": 1,
               isNewArrival: 1, isBestSeller: 1, isFeatured: 1,
               "category._id": 1, "category.name": 1, "category.slug": 1,
+              variants: { $map: { input: { $ifNull: ["$variants", []] }, as: "v", in: { price: "$$v.price" } } },
             },
           },
         ],
@@ -136,17 +139,25 @@ export async function queryProducts(opts: ProductQuery = {}): Promise<ProductQue
   const [result] = await Product.aggregate<FacetResult>(pipeline);
   const total = result?.meta?.[0]?.total ?? 0;
 
-  const serialize = (p: ProductListItem): ProductListItem => ({
-    ...p,
-    _id: String(p._id),
-    reviewSummary: {
-      average: p.reviewSummary?.average ?? 0,
-      count:   p.reviewSummary?.count   ?? 0,
-    },
-    category: p.category
-      ? { _id: String(p.category._id), name: p.category.name, slug: p.category.slug }
-      : p.category,
-  });
+  const serialize = (p: ProductListItem): ProductListItem => {
+    const variantPrices = (p.variants ?? [])
+      .map((v) => v.price)
+      .filter((price): price is number => price != null && price > 0);
+    const minVariantPrice = variantPrices.length > 0 ? Math.min(...variantPrices) : undefined;
+    return {
+      ...p,
+      _id: String(p._id),
+      variants: undefined,
+      minVariantPrice: minVariantPrice !== undefined && minVariantPrice < p.basePrice ? minVariantPrice : undefined,
+      reviewSummary: {
+        average: p.reviewSummary?.average ?? 0,
+        count:   p.reviewSummary?.count   ?? 0,
+      },
+      category: p.category
+        ? { _id: String(p.category._id), name: p.category.name, slug: p.category.slug }
+        : p.category,
+    };
+  };
 
   return {
     products: (result?.products ?? []).map(serialize),
