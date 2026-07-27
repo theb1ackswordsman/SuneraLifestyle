@@ -905,9 +905,6 @@ export function CheckoutContent({
                     : <><Zap className="h-4 w-4" /> Pay {formatPrice(total)} Securely</>
                   }
                 </button>
-                <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                  🔒 256-bit encrypted · Powered by Razorpay
-                </p>
               </div>
             </div>
           </div>
