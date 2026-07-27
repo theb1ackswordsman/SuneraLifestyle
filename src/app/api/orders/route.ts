@@ -130,6 +130,9 @@ export async function POST(req: NextRequest) {
       )
     );
 
+    // Send confirmation email for COD orders
+    sendOrderEmail(order, session.user!.email).catch((e) => console.error("[Order email] COD failed:", e));
+
     return NextResponse.json({ success: true, orderNumber: order.orderNumber, orderId: String(order._id) }, { status: 201 });
   }
 

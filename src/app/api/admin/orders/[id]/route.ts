@@ -76,13 +76,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // Send status email (non-blocking)
     const msg = STATUS_MESSAGES[status];
     if (msg) {
-      User.findById(order.userId).select("name email").lean()
-        .then((user) => {
-          if (!user?.email) return;
+      (async () => {
+        try {
+          const user = await User.findById(order.userId).select("name email").lean();
+          if (!user?.email) {
+            console.warn("[Status email] no email for userId:", order.userId);
+            return;
+          }
           const eta = order.estimatedDelivery
             ? new Date(order.estimatedDelivery).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
             : undefined;
-          return sendEmail({
+          await sendEmail({
             to:      user.email,
             subject: `Order ${status.charAt(0).toUpperCase() + status.slice(1)} – ${order.orderNumber} | SunEra Lifestyle`,
             html:    orderStatusTemplate({
@@ -95,8 +99,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
               trackUrl:          `${BASE_URL}/account/orders`,
             }),
           });
-        })
-        .catch((e) => console.error("[Status email] failed:", e));
+        } catch (e) {
+          console.error("[Status email] failed for order", order.orderNumber, e);
+        }
+      })();
     }
 
     return ok({ order }, "Order status updated.");
