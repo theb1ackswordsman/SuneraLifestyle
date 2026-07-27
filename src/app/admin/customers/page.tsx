@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Users, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { Users, Search, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Customer {
@@ -99,6 +100,14 @@ export default function AdminCustomersPage() {
                 <span>{c.phone ?? "No phone"}</span>
                 <span>Joined {fmtDate(c.createdAt)}</span>
               </div>
+              <div className="pt-1">
+                <Link
+                  href={`/admin/customers/${c._id}`}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:bg-[#1a5c14] hover:text-white hover:border-[#1a5c14] transition-colors"
+                >
+                  <Eye className="h-3.5 w-3.5" /> View Profile
+                </Link>
+              </div>
             </div>
           ))
         )}
@@ -110,7 +119,7 @@ export default function AdminCustomersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                {["Name", "Email", "Phone", "Verified", "Status", "Joined"].map((h) => (
+                {["Name", "Email", "Phone", "Verified", "Status", "Joined", "Actions"].map((h) => (
                   <th key={h} className="px-5 py-3.5 font-semibold text-gray-500 uppercase text-xs tracking-wider whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -125,7 +134,7 @@ export default function AdminCustomersPage() {
                   </tr>
                 ))
               ) : customers.length === 0 ? (
-                <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">No customers found.</td></tr>
+                <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400">No customers found.</td></tr>
               ) : (
                 customers.map((c) => (
                   <tr key={c._id} className="hover:bg-gray-50 transition-colors">
@@ -143,6 +152,14 @@ export default function AdminCustomersPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-gray-500 text-xs whitespace-nowrap">{fmtDate(c.createdAt)}</td>
+                    <td className="px-5 py-4">
+                      <Link
+                        href={`/admin/customers/${c._id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-[#1a5c14] hover:text-white hover:border-[#1a5c14] transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Link>
+                    </td>
                   </tr>
                 ))
               )}

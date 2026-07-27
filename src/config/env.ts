@@ -21,8 +21,12 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional(),
   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().optional(),
 
-  // Email (Brevo)
+  // Email — Brevo SMTP relay (production) or Gmail (local dev)
+  BREVO_SMTP_USER: z.string().optional(),
+  BREVO_SMTP_KEY: z.string().optional(),
   BREVO_API_KEY: z.string().optional(),
+  EMAIL_USER: z.string().optional(),
+  EMAIL_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default("SunEra Lifestyle <no-reply@sunera.in>"),
 
   // Razorpay

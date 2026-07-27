@@ -6,10 +6,18 @@ export const metadata: Metadata = {
   title: "Checkout — SunEra Lifestyle",
 };
 
-export default function CheckoutPage() {
+export default async function CheckoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ buyNow?: string; qty?: string }>;
+}) {
+  const params = await searchParams;
+  const buyNowProductId = params.buyNow;
+  const buyNowQty = params.qty ? Math.max(1, parseInt(params.qty, 10)) : 1;
+
   return (
     <ShopLayout>
-      <CheckoutContent />
+      <CheckoutContent buyNowProductId={buyNowProductId} buyNowQty={buyNowQty} />
     </ShopLayout>
   );
 }

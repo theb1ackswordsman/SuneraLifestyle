@@ -52,7 +52,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         role: refreshPayload.role,
         adminVerified: refreshPayload.adminVerified,
       });
-      const response = NextResponse.next();
+      // Forward auth headers to route handlers as request headers
+      const reqHeaders = new Headers(request.headers);
+      reqHeaders.set("x-user-id", refreshPayload.userId);
+      reqHeaders.set("x-user-role", refreshPayload.role);
+      if (refreshPayload.adminVerified) reqHeaders.set("x-admin-verified", "1");
+
+      const response = NextResponse.next({ request: { headers: reqHeaders } });
       response.cookies.set(COOKIES.ACCESS_TOKEN, newAccessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -88,14 +94,17 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const response = NextResponse.next();
+  let response: NextResponse;
 
   if (payload) {
-    response.headers.set("x-user-id", payload.userId);
-    response.headers.set("x-user-role", payload.role);
-    if (payload.adminVerified) {
-      response.headers.set("x-admin-verified", "1");
-    }
+    // Forward user identity to route handlers as request headers
+    const reqHeaders = new Headers(request.headers);
+    reqHeaders.set("x-user-id", payload.userId);
+    reqHeaders.set("x-user-role", payload.role);
+    if (payload.adminVerified) reqHeaders.set("x-admin-verified", "1");
+    response = NextResponse.next({ request: { headers: reqHeaders } });
+  } else {
+    response = NextResponse.next();
   }
 
   return addSecurityHeaders(response);

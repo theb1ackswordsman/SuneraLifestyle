@@ -223,6 +223,12 @@ export async function PUT(
       returnDoc.timeline.push({ status: RETURN_STATUS.REFUND_COMPLETED, message: "Refund completed.", timestamp: new Date(), performedBy: "admin" });
       await returnDoc.save();
 
+      // Update the order so revenue is reduced in dashboard stats
+      await Order.findByIdAndUpdate(returnDoc.orderId, {
+        status: "refunded",
+        paymentStatus: "refunded",
+      });
+
       const email = await getUserEmail(returnDoc.userId);
       if (email) {
         sendEmail({

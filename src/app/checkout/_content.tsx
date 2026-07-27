@@ -346,7 +346,13 @@ function SuccessScreen({ orderNumber }: { orderNumber: string }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function CheckoutContent() {
+export function CheckoutContent({
+  buyNowProductId,
+  buyNowQty = 1,
+}: {
+  buyNowProductId?: string;
+  buyNowQty?: number;
+}) {
   const [lines,        setLines]        = useState<Line[]>([]);
   const [cartLoading,  setCartLoading]  = useState(true);
   const [savedAddrs,   setSavedAddrs]   = useState<SavedAddress[]>([]);
@@ -374,8 +380,21 @@ export function CheckoutContent() {
     amount: number; currency: string; keyId: string;
   } | null>(null);
 
-  // ── Load cart ──────────────────────────────────────────────────────────────
+  // ── Load cart (or single Buy Now item) ────────────────────────────────────
   const loadCart = useCallback(async () => {
+    if (buyNowProductId) {
+      // Buy Now mode — only fetch the one product, skip the cart entirely
+      try {
+        const res  = await fetch(`/api/products/batch?ids=${buyNowProductId}`);
+        const json = await res.json();
+        const p: CartProduct | undefined = (json.data ?? [])[0];
+        if (p) setLines([{ ...p, qty: buyNowQty }]);
+      } finally {
+        setCartLoading(false);
+      }
+      return;
+    }
+
     const items = getCartItems();
     if (!items.length) { setLines([]); setCartLoading(false); return; }
     const ids = items.map((i) => i.productId).join(",");
@@ -390,7 +409,7 @@ export function CheckoutContent() {
     } finally {
       setCartLoading(false);
     }
-  }, []);
+  }, [buyNowProductId, buyNowQty]);
 
   useEffect(() => {
     loadCart();
@@ -515,9 +534,9 @@ export function CheckoutContent() {
             return;
           }
 
-          // Payment was attempted — clear cart regardless of outcome
+          // Payment was attempted — clear cart (only in normal cart mode, not Buy Now)
           setPendingRzp(null);
-          clearCart();
+          if (!buyNowProductId) clearCart();
 
           if (verifyJson.data?.status === "pending_verification" || verifyJson.status === "pending_verification") {
             // Money may have been deducted but signature couldn't be verified — show under-review screen
@@ -528,7 +547,7 @@ export function CheckoutContent() {
         } catch {
           // Network failure after payment attempt — treat as pending_verification
           setPendingRzp(null);
-          clearCart();
+          if (!buyNowProductId) clearCart();
           setOrderUnderReview(session.orderNumber);
         }
         setPlacing(false);

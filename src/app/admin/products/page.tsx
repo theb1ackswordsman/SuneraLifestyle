@@ -33,6 +33,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading]       = useState(true);
   const [deleting, setDeleting]     = useState<string | null>(null);
   const [toggling, setToggling]     = useState<string | null>(null);
+  const [deleteErr, setDeleteErr]   = useState("");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -54,9 +55,20 @@ export default function AdminProductsPage() {
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     setDeleting(id);
-    await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
-    setDeleting(null);
-    load();
+    setDeleteErr("");
+    try {
+      const res  = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteErr(json.error ?? `Failed to delete (${res.status}). Please try again.`);
+      } else {
+        load();
+      }
+    } catch {
+      setDeleteErr("Network error. Please check your connection and try again.");
+    } finally {
+      setDeleting(null);
+    }
   }
 
   async function handleToggle(id: string, field: "isFeatured" | "isBestSeller", current: boolean) {
@@ -72,6 +84,12 @@ export default function AdminProductsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-5">
+      {deleteErr && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
+          <span>{deleteErr}</span>
+          <button onClick={() => setDeleteErr("")} className="shrink-0 text-red-400 hover:text-red-600 text-lg leading-none">&times;</button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">

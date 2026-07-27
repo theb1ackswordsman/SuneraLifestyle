@@ -101,8 +101,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
 
   function handleBuyNow() {
     if (!user) { requireAuth(() => {}); return; }
-    cartAdd(String(product._id), qty);
-    router.push("/checkout");
+    router.push(`/checkout?buyNow=${product._id}&qty=${qty}`);
   }
 
   return (
@@ -272,47 +271,50 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               </div>
             ) : (
               <>
-                <div className="mt-6 flex flex-wrap items-center gap-3">
-                  <div className="flex items-center rounded-xl border border-border">
+                {/* Row 1: Quantity + Add to Cart */}
+                <div className="mt-6 flex items-center gap-2">
+                  <div className="flex items-center rounded-xl border border-border shrink-0">
                     <button
                       onClick={() => setQty((q) => Math.max(1, q - 1))}
-                      className="flex h-11 w-11 items-center justify-center rounded-l-xl transition-colors hover:bg-muted"
+                      className="flex h-9 w-9 items-center justify-center rounded-l-xl transition-colors hover:bg-muted"
                       aria-label="Decrease quantity"
                     >
-                      <Minus className="h-4 w-4" />
+                      <Minus className="h-3.5 w-3.5" />
                     </button>
-                    <span className="w-10 text-center text-sm font-bold">{qty}</span>
+                    <span className="w-8 text-center text-sm font-bold">{qty}</span>
                     <button
                       onClick={() => setQty((q) => q + 1)}
-                      className="flex h-11 w-11 items-center justify-center rounded-r-xl transition-colors hover:bg-muted"
+                      className="flex h-9 w-9 items-center justify-center rounded-r-xl transition-colors hover:bg-muted"
                       aria-label="Increase quantity"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
-                  <Button variant="primary" size="lg" onClick={addToCart} className="flex-1 min-w-45">
+                  <Button variant="primary" size="lg" onClick={addToCart} className="flex-1">
                     {added ? (
                       <><Check className="h-4 w-4" /> Added to Cart</>
                     ) : (
                       <><ShoppingBag className="h-4 w-4" /> Add to Cart</>
                     )}
                   </Button>
+                </div>
 
+                {/* Row 2: Buy It Now + Wishlist */}
+                <div className="mt-3 flex items-center gap-2">
+                  <Button variant="default" size="lg" className="flex-1" onClick={handleBuyNow}>
+                    Buy It Now
+                  </Button>
                   <Button
                     variant="outline"
                     size="icon-lg"
                     onClick={handleWishlist}
                     aria-label="Add to wishlist"
-                    className="h-12 w-12 shrink-0"
+                    className="h-11 w-11 shrink-0"
                   >
                     <Heart className={cn("h-5 w-5", wishlisted && "fill-rose-500 text-rose-500")} />
                   </Button>
                 </div>
-
-                <Button variant="default" size="lg" className="mt-3 w-full" onClick={handleBuyNow}>
-                  Buy It Now
-                </Button>
               </>
             )}
 

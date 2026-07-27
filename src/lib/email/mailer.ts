@@ -12,29 +12,55 @@ let _transporter: nodemailer.Transporter | null = null;
 
 function getTransporter(): nodemailer.Transporter {
   if (_transporter) return _transporter;
-  _transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    pool: true,          // keep connection alive across emails
-    maxConnections: 5,
-  });
+
+  const brevoKey = process.env.BREVO_SMTP_KEY;
+  const brevoUser = process.env.BREVO_SMTP_USER;
+
+  if (brevoKey && brevoUser) {
+    // Brevo SMTP relay — works from any cloud provider (Vercel/AWS/etc.)
+    _transporter = nodemailer.createTransport({
+      host: "smtp-relay.brevo.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: brevoUser,
+        pass: brevoKey,
+      },
+      pool: true,
+      maxConnections: 5,
+    });
+  } else {
+    // Gmail SMTP — only works locally (Google blocks cloud provider IPs)
+    _transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      pool: true,
+      maxConnections: 5,
+    });
+  }
+
   return _transporter;
 }
 
 export async function sendEmail({ to, subject, html, text }: MailOptions): Promise<void> {
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
+  const brevoKey = process.env.BREVO_SMTP_KEY;
+  const brevoUser = process.env.BREVO_SMTP_USER;
+  const gmailUser = process.env.EMAIL_USER;
+  const gmailPass = process.env.EMAIL_PASS;
 
-  if (!user || !pass) {
-    console.warn("[Email] EMAIL_USER or EMAIL_PASS not set — skipping send to:", to);
+  const hasBrevo = !!(brevoKey && brevoUser);
+  const hasGmail = !!(gmailUser && gmailPass);
+
+  if (!hasBrevo && !hasGmail) {
+    console.warn("[Email] No email credentials set (BREVO_SMTP_KEY/USER or EMAIL_USER/PASS) — skipping send to:", to);
     return;
   }
 
-  const from = process.env.EMAIL_FROM ?? `SunEra Lifestyle <${user}>`;
-  const domain = process.env.EMAIL_USER?.split("@")[1] ?? "gmail.com";
+  const from = process.env.EMAIL_FROM ?? `SunEra Lifestyle <${brevoUser ?? gmailUser}>`;
+  const domain = (brevoUser ?? gmailUser)?.split("@")[1] ?? "gmail.com";
   const msgId = `<${crypto.randomUUID()}@${domain}>`;
 
   try {
@@ -46,18 +72,14 @@ export async function sendEmail({ to, subject, html, text }: MailOptions): Promi
       html,
       text: text ?? html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
       headers: {
-        // Unique per message — prevents Gmail threading duplicate-looking emails
         "Message-ID": msgId,
-        // Signals this is a one-to-one transactional mail, not bulk
         "Precedence": "transactional",
-        // Required by Gmail & Yahoo bulk sender rules (reduces spam scoring)
         "List-Unsubscribe": `<${process.env.NEXT_PUBLIC_APP_URL ?? "https://sunera-lifestyle.vercel.app"}/unsubscribe>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-        // Helps identify the sending application
         "X-Mailer": "SunEra Lifestyle Transactional Mailer",
       },
     });
-    console.warn("[Email] Sent — messageId:", info.messageId, "to:", to);
+    console.warn("[Email] Sent via", hasBrevo ? "Brevo" : "Gmail", "— messageId:", info.messageId, "to:", to);
   } catch (err) {
     console.error("[Email] SMTP error:", err);
     throw err;
