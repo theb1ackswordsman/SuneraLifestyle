@@ -120,14 +120,23 @@ function ReturnModal({
   onClose: () => void;
   onSuccess: (returnDoc: ReturnDoc) => void;
 }) {
-  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(() => new Set(order.items.map((i) => i._id)));
-  const [reason,       setReason]       = useState("");
-  const [description,  setDescription]  = useState("");
-  const [uploading,    setUploading]    = useState(false);
-  const [submitting,   setSubmitting]   = useState(false);
-  const [imageFiles,   setImageFiles]   = useState<File[]>([]);
-  const [imagePrev,    setImagePrev]    = useState<string[]>([]);
-  const [error,        setError]        = useState("");
+  const isCOD = order.paymentMethod === "cod";
+
+  const [selectedIds,    setSelectedIds]    = useState<Set<string>>(() => new Set(order.items.map((i) => i._id)));
+  const [reason,         setReason]         = useState("");
+  const [description,    setDescription]    = useState("");
+  const [uploading,      setUploading]      = useState(false);
+  const [submitting,     setSubmitting]     = useState(false);
+  const [imageFiles,     setImageFiles]     = useState<File[]>([]);
+  const [imagePrev,      setImagePrev]      = useState<string[]>([]);
+  const [error,          setError]          = useState("");
+  // Bank / UPI details (required for COD orders)
+  const [refundType,     setRefundType]     = useState<"upi" | "bank">("upi");
+  const [upiId,          setUpiId]          = useState("");
+  const [accountHolder,  setAccountHolder]  = useState("");
+  const [accountNumber,  setAccountNumber]  = useState("");
+  const [ifsc,           setIfsc]           = useState("");
+  const [bankName,       setBankName]       = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   function toggleItem(id: string) {
@@ -173,6 +182,19 @@ function ReturnModal({
     e.preventDefault();
     if (selectedIds.size === 0) { setError("Please select at least one item to return."); return; }
     if (!reason) { setError("Please select a return reason."); return; }
+
+    // Validate bank/UPI details for COD orders
+    if (isCOD) {
+      if (refundType === "upi" && !upiId.trim()) {
+        setError("Please enter your UPI ID to receive the refund."); return;
+      }
+      if (refundType === "bank") {
+        if (!accountHolder.trim() || !accountNumber.trim() || !ifsc.trim()) {
+          setError("Please fill in all bank account details."); return;
+        }
+      }
+    }
+
     setError(""); setSubmitting(true);
 
     try {
@@ -182,10 +204,16 @@ function ReturnModal({
 
       const items = selectedItems.map((i) => ({ _id: i._id, quantity: i.quantity }));
 
+      const bankDetails = isCOD
+        ? refundType === "upi"
+          ? { type: "upi" as const, upiId: upiId.trim() }
+          : { type: "bank" as const, accountHolder: accountHolder.trim(), accountNumber: accountNumber.trim(), ifsc: ifsc.trim().toUpperCase(), bankName: bankName.trim() || undefined }
+        : undefined;
+
       const res  = await fetch("/api/returns", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ orderId: order._id, items, reason, description, images }),
+        body:    JSON.stringify({ orderId: order._id, items, reason, description, images, bankDetails }),
       });
       const json = await res.json();
 
@@ -294,6 +322,52 @@ function ReturnModal({
             />
           </div>
 
+          {/* Bank / UPI details — only for COD orders */}
+          {isCOD && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-blue-900 mb-0.5">Refund Account Details <span className="text-red-500">*</span></p>
+                <p className="text-xs text-blue-700">Since this was a Cash on Delivery order, please provide your bank or UPI details so we can transfer the refund.</p>
+              </div>
+              {/* Toggle UPI / Bank */}
+              <div className="flex gap-2">
+                {(["upi", "bank"] as const).map((t) => (
+                  <button key={t} type="button" onClick={() => setRefundType(t)}
+                    className={cn("flex-1 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors",
+                      refundType === t ? "border-blue-500 bg-blue-100 text-blue-800" : "border-border bg-background text-muted-foreground hover:bg-muted/60"
+                    )}>
+                    {t === "upi" ? "UPI ID" : "Bank Account"}
+                  </button>
+                ))}
+              </div>
+              {refundType === "upi" ? (
+                <input
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  placeholder="yourname@upi or phone@paytm"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                />
+              ) : (
+                <div className="space-y-2">
+                  <input value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)}
+                    placeholder="Account holder name *"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  <input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)}
+                    placeholder="Account number *"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input value={ifsc} onChange={(e) => setIfsc(e.target.value.toUpperCase())}
+                      placeholder="IFSC code *"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <input value={bankName} onChange={(e) => setBankName(e.target.value)}
+                      placeholder="Bank name (optional)"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Image upload */}
           <div>
             <label className="block text-sm font-semibold text-foreground mb-1.5">Product Images <span className="text-muted-foreground font-normal">(optional, max 5)</span></label>
@@ -362,9 +436,9 @@ function TrackingStepper({ status }: { status: string }) {
 
   return (
     <div className="relative">
-      <div className="absolute top-5 left-5 right-5 h-0.5 bg-gray-100 z-0" />
+      <div className="absolute top-4 sm:top-5 left-4 sm:left-5 right-4 sm:right-5 h-0.5 bg-gray-100 z-0" />
       <div
-        className="absolute top-5 left-5 h-0.5 bg-[#1a5c14] z-0 transition-all duration-500"
+        className="absolute top-4 sm:top-5 left-4 sm:left-5 h-0.5 bg-[#1a5c14] z-0 transition-all duration-500"
         style={{ width: currentIdx === 0 ? "0%" : `${(currentIdx / (STATUS_STEPS.length - 1)) * (100 - (100 / STATUS_STEPS.length))}%` }}
       />
       <div className="relative z-10 flex justify-between">
@@ -372,15 +446,15 @@ function TrackingStepper({ status }: { status: string }) {
           const done    = i <= currentIdx;
           const current = i === currentIdx;
           return (
-            <div key={step.key} className="flex flex-col items-center gap-1.5" style={{ width: `${100 / STATUS_STEPS.length}%` }}>
+            <div key={step.key} className="flex flex-col items-center gap-1" style={{ width: `${100 / STATUS_STEPS.length}%` }}>
               <div className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all",
+                "flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border-2 transition-all",
                 done ? "bg-[#1a5c14] border-[#1a5c14] text-white" : "bg-white border-gray-200 text-gray-300",
                 current && "shadow-md shadow-[#1a5c14]/20 ring-4 ring-[#1a5c14]/10"
               )}>
-                {done ? <Check className="h-4 w-4" strokeWidth={2.5} /> : <span className="text-xs font-bold">{i + 1}</span>}
+                {done ? <Check className="h-3 w-3 sm:h-4 sm:w-4" strokeWidth={2.5} /> : <span className="text-[10px] sm:text-xs font-bold">{i + 1}</span>}
               </div>
-              <span className={cn("text-[10px] font-semibold text-center leading-tight",
+              <span className={cn("text-[9px] sm:text-[10px] font-semibold text-center leading-tight",
                 done ? "text-[#1a5c14]" : "text-gray-400"
               )}>
                 {step.label}
@@ -484,9 +558,9 @@ function OrderCard({
     <>
     <div className="rounded-2xl border border-border bg-background overflow-hidden transition-shadow hover:shadow-sm">
       {/* Header — order number + status + toggle */}
-      <button className="w-full text-left px-5 pt-4 pb-3 flex items-center justify-between gap-2" onClick={() => setOpen((p) => !p)}>
-        <div>
-          <p className="font-mono text-sm font-bold text-foreground">{order.orderNumber}</p>
+      <button className="w-full text-left px-4 sm:px-5 pt-4 pb-3 flex items-center justify-between gap-2" onClick={() => setOpen((p) => !p)}>
+        <div className="min-w-0">
+          <p className="font-mono text-sm font-bold text-foreground truncate">{order.orderNumber}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{fmtDate(order.createdAt)} · {formatPrice(order.total)}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -501,7 +575,7 @@ function OrderCard({
       <div className="border-t border-border divide-y divide-border">
         {order.items.map((item, idx) => (
           <Link key={idx} href={`/product/${item.slug}`}
-            className="flex items-center gap-3 px-5 py-3 hover:bg-muted/40 transition-colors">
+            className="flex items-center gap-3 px-3 sm:px-5 py-3 hover:bg-muted/40 transition-colors">
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
               {item.image
                 // eslint-disable-next-line @next/next/no-img-element
@@ -520,7 +594,7 @@ function OrderCard({
 
       {/* Return status chip */}
       {returnDoc && (
-        <div className="px-5 pb-3">
+        <div className="px-3 sm:px-5 pb-3">
           <Link href={`/account/returns/${returnDoc._id}`}
             className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold", RETURN_STATUS_BADGE[returnDoc.status] ?? "bg-gray-100 text-gray-600")}>
             <RotateCcw className="h-3 w-3" />
@@ -531,7 +605,7 @@ function OrderCard({
 
       {/* Expandable detail */}
       {open && (
-        <div className="border-t border-border px-5 pb-5 space-y-6">
+        <div className="border-t border-border px-3 sm:px-5 pb-4 sm:pb-5 space-y-5 sm:space-y-6">
 
           {/* Tracking stepper */}
           <div className="pt-5">
@@ -541,15 +615,15 @@ function OrderCard({
 
           {/* Delivery info */}
           {order.estimatedDelivery && order.status !== "delivered" && order.status !== "cancelled" && (
-            <div className="rounded-xl bg-[#1a5c14]/5 border border-[#1a5c14]/20 px-4 py-3 flex items-center gap-3">
+            <div className="rounded-xl bg-[#1a5c14]/5 border border-[#1a5c14]/20 px-3 sm:px-4 py-3 flex items-center gap-3">
               <Truck className="h-5 w-5 text-[#1a5c14] shrink-0" />
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-[#1a5c14]">Expected Delivery</p>
-                <p className="text-sm font-bold text-foreground">{fmtDateLong(order.estimatedDelivery)}</p>
+                <p className="text-sm font-bold text-foreground leading-snug">{fmtDateLong(order.estimatedDelivery)}</p>
               </div>
               {order.trackingNumber && order.trackingUrl && (
                 <a href={order.trackingUrl} target="_blank" rel="noopener noreferrer"
-                  className="ml-auto flex items-center gap-1 text-xs font-semibold text-[#1a5c14] hover:underline">
+                  className="shrink-0 flex items-center gap-1 text-xs font-semibold text-[#1a5c14] hover:underline">
                   Track <ExternalLink className="h-3 w-3" />
                 </a>
               )}
@@ -558,17 +632,19 @@ function OrderCard({
 
           {/* Cancel section — for pre-shipment orders */}
           {canCancel && (
-            <div className="rounded-xl border border-red-200 bg-red-50/50 p-4 flex items-start gap-3">
-              <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">Need to cancel?</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  You can cancel this order as it hasn&apos;t been shipped yet.
-                </p>
+            <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Need to cancel?</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    You can cancel this order as it hasn&apos;t been shipped yet.
+                  </p>
+                </div>
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowCancelModal(true); }}
-                className="shrink-0 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+                className="mt-3 w-full sm:w-auto sm:ml-7 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
               >
                 Cancel Order
               </button>
@@ -579,17 +655,19 @@ function OrderCard({
           {order.status === "delivered" && (
             <div>
               {canReturn ? (
-                <div className="rounded-xl border border-orange-200 bg-orange-50/50 p-4 flex items-start gap-3">
-                  <RotateCcw className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-foreground">Not satisfied with your order?</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Return window expires {returnWindowExpiry ? fmtDate(returnWindowExpiry.toISOString()) : "soon"}.
-                    </p>
+                <div className="rounded-xl border border-orange-200 bg-orange-50/50 p-4">
+                  <div className="flex items-start gap-3">
+                    <RotateCcw className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Not satisfied with your order?</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Return window expires {returnWindowExpiry ? fmtDate(returnWindowExpiry.toISOString()) : "soon"}.
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); onReturnClick(order); }}
-                    className="shrink-0 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
+                    className="mt-3 w-full sm:w-auto sm:ml-7 rounded-xl bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
                   >
                     Return Order
                   </button>
@@ -597,9 +675,9 @@ function OrderCard({
               ) : returnDoc ? (
                 <div className="rounded-xl border border-border bg-muted/30 p-4 flex items-center gap-3">
                   <RotateCcw className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">Return request submitted</p>
-                    <p className="text-sm font-semibold">{returnDoc.returnNumber}</p>
+                    <p className="text-sm font-semibold truncate">{returnDoc.returnNumber}</p>
                   </div>
                   <Link href={`/account/returns/${returnDoc._id}`} onClick={(e) => e.stopPropagation()}
                     className="shrink-0 flex items-center gap-1 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-muted transition-colors">
@@ -790,33 +868,33 @@ export default function OrdersContent() {
   }
 
   return (
-    <div className="container-padded pt-32 pb-16">
+    <div className="container-padded pt-28 sm:pt-32 pb-12 sm:pb-16">
       <div className="max-w-3xl mx-auto">
         <Link href="/account"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 sm:mb-8 transition-colors">
           <ArrowLeft className="h-4 w-4" /> Back to Account
         </Link>
 
-        <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
+        <div className="flex items-center gap-3 mb-5 sm:mb-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 shrink-0">
             <Package className="h-5 w-5 text-amber-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-foreground">My Orders</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-foreground">My Orders</h1>
             {!loading && <p className="text-xs text-muted-foreground">{orders.length} order{orders.length !== 1 ? "s" : ""} total</p>}
           </div>
         </div>
 
         {/* Filter tabs */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-5 sm:mb-6">
           {FILTER_TABS.map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={cn("rounded-full px-4 py-1.5 text-sm font-semibold transition-all",
+              className={cn("rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold transition-all",
                 tab === t ? "bg-[#0f0f0f] text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}>
               {t}
               {t !== "All" && !loading && (
-                <span className="ml-1.5 text-xs opacity-70">
+                <span className="ml-1 sm:ml-1.5 text-xs opacity-70">
                   ({orders.filter((o) => TAB_TO_STATUSES[t].includes(o.status)).length})
                 </span>
               )}
@@ -830,7 +908,7 @@ export default function OrdersContent() {
             {[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-16 flex flex-col items-center text-center">
+          <div className="rounded-2xl border border-border bg-card p-8 sm:p-16 flex flex-col items-center text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-50 mb-6">
               <ShoppingBag className="h-10 w-10 text-amber-400" />
             </div>

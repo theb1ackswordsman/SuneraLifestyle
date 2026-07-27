@@ -243,9 +243,6 @@ export function CartView() {
                 </Button>
               </Link>
 
-              <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                🔒 Secure SSL-encrypted checkout
-              </p>
             </div>
           </div>
         </div>

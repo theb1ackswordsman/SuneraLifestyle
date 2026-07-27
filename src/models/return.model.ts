@@ -53,6 +53,15 @@ const returnTimelineSchema = new Schema(
   { _id: false }
 );
 
+export interface IReturnBankDetails {
+  type:            "upi" | "bank";
+  upiId?:          string;
+  accountHolder?:  string;
+  accountNumber?:  string;
+  ifsc?:           string;
+  bankName?:       string;
+}
+
 export interface IReturnDocument extends Document {
   returnNumber:  string;
   orderId:       mongoose.Types.ObjectId;
@@ -66,6 +75,7 @@ export interface IReturnDocument extends Document {
   video?:        string;
   status:        ReturnStatus;
   adminNote?:    string;
+  paymentMethod?: string;
   timeline:      Array<{ status: string; message?: string; timestamp: Date; performedBy: string }>;
   refund: {
     amount?:          number;
@@ -76,6 +86,7 @@ export interface IReturnDocument extends Document {
     initiatedAt?:     Date;
     completedAt?:     Date;
     notes?:           string;
+    bankDetails?:     IReturnBankDetails;
   };
   returnWindowExpiry: Date;
   deletedAt?:         Date;
@@ -102,9 +113,10 @@ const returnSchema = new Schema<IReturnDocument>(
     description:  { type: String, maxlength: 1000 },
     images:       [{ type: String }],
     video:        { type: String },
-    status:       { type: String, enum: Object.values(RETURN_STATUS), default: RETURN_STATUS.REQUESTED },
-    adminNote:    { type: String },
-    timeline:     { type: [returnTimelineSchema], default: [] },
+    status:        { type: String, enum: Object.values(RETURN_STATUS), default: RETURN_STATUS.REQUESTED },
+    adminNote:     { type: String },
+    paymentMethod: { type: String },
+    timeline:      { type: [returnTimelineSchema], default: [] },
     refund: {
       amount:          { type: Number },
       status:          { type: String, enum: Object.values(REFUND_STATUS) },
@@ -114,6 +126,14 @@ const returnSchema = new Schema<IReturnDocument>(
       initiatedAt:     { type: Date },
       completedAt:     { type: Date },
       notes:           { type: String },
+      bankDetails: {
+        type:          { type: String, enum: ["upi", "bank"] },
+        upiId:         { type: String },
+        accountHolder: { type: String },
+        accountNumber: { type: String },
+        ifsc:          { type: String },
+        bankName:      { type: String },
+      },
     },
     returnWindowExpiry: { type: Date, required: true },
     deletedAt:          { type: Date },

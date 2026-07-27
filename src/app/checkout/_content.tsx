@@ -817,10 +817,6 @@ export function CheckoutContent({
                     <p className="text-xs text-muted-foreground mt-0.5">UPI · Cards · NetBanking · Wallets</p>
                   </div>
                 </div>
-                <div className="mt-3 flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-xs text-blue-800">
-                  <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>256-bit encrypted. Supports PhonePe, GPay, Paytm, all debit/credit cards, and NetBanking.</span>
-                </div>
               </SectionCard>
             </div>
 

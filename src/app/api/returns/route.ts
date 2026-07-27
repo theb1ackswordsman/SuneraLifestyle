@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     await connectDB();
 
     const body = await req.json();
-    const { orderId, reason, description, images, video, items: requestedItems } = body;
+    const { orderId, reason, description, images, video, items: requestedItems, bankDetails } = body;
 
     if (!orderId) return badRequest("Order ID is required.");
     if (!reason || !RETURN_REASONS.includes(reason)) return badRequest("Invalid return reason.");
@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
       images:             Array.isArray(images) ? images.filter(Boolean).slice(0, 5) : [],
       video:              video?.trim() || undefined,
       status:             RETURN_STATUS.REQUESTED,
+      paymentMethod:      order.paymentMethod,
       timeline: [{
         status:      RETURN_STATUS.REQUESTED,
         message:     "Return request submitted by customer.",
@@ -132,7 +133,9 @@ export async function POST(req: NextRequest) {
         performedBy: "customer",
       }],
       returnWindowExpiry: windowExpiry,
-      refund:             {},
+      refund: {
+        bankDetails: bankDetails ?? undefined,
+      },
     });
 
     // Non-blocking confirmation email

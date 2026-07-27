@@ -18,6 +18,7 @@ interface ReturnDoc {
   createdAt: string;
   orderTotal: number;
   adminNote?: string;
+  paymentMethod?: string;
   userId?: { _id: string; name: string; email: string; phone?: string };
   items: Array<{ _id: string; name: string; image: string; price: number; quantity: number }>;
   timeline: Array<{ status: string; message?: string; timestamp: string; performedBy: string }>;
@@ -25,6 +26,14 @@ interface ReturnDoc {
     amount?: number; status?: string; method?: string;
     gatewayRefundId?: string; initiatedAt?: string; completedAt?: string;
     failureReason?: string; notes?: string;
+    bankDetails?: {
+      type?: "upi" | "bank";
+      upiId?: string;
+      accountHolder?: string;
+      accountNumber?: string;
+      ifsc?: string;
+      bankName?: string;
+    };
   };
 }
 
@@ -145,10 +154,55 @@ export default function AdminReturnDetailPage() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div><p className="text-gray-400 text-xs">Reason</p><p className="font-semibold">{REASON_LABEL[r.reason] ?? r.reason}</p></div>
               <div><p className="text-gray-400 text-xs">Order Total</p><p className="font-semibold">₹{r.orderTotal.toLocaleString("en-IN")}</p></div>
+              <div>
+                <p className="text-gray-400 text-xs">Payment Method</p>
+                <p className="font-semibold capitalize">{r.paymentMethod === "razorpay" ? "Online (Razorpay)" : r.paymentMethod === "cod" ? "Cash on Delivery" : r.paymentMethod ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Refund Type</p>
+                <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold",
+                  r.paymentMethod === "razorpay" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                )}>
+                  {r.paymentMethod === "razorpay" ? "⚡ Auto via Razorpay" : "🏦 Manual Transfer"}
+                </span>
+              </div>
             </div>
             {r.description && <div><p className="text-gray-400 text-xs">Description</p><p className="text-sm mt-1 leading-relaxed">{r.description}</p></div>}
             {r.adminNote && <div className="rounded-xl bg-amber-50 border border-amber-200 p-3"><p className="text-xs font-semibold text-amber-700">Admin Note: {r.adminNote}</p></div>}
           </div>
+
+          {/* Bank / UPI details — only for COD orders */}
+          {r.paymentMethod === "cod" && r.refund?.bankDetails && (
+            <div className="bg-white rounded-2xl border border-blue-200 p-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-500">Customer Refund Account</p>
+              {r.refund.bankDetails.type === "upi" ? (
+                <div>
+                  <p className="text-gray-400 text-xs mb-0.5">UPI ID</p>
+                  <p className="font-mono font-bold text-gray-900 text-sm bg-blue-50 rounded-xl px-3 py-2 select-all">
+                    {r.refund.bankDetails.upiId}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="col-span-2"><p className="text-gray-400 text-xs">Account Holder</p><p className="font-semibold">{r.refund.bankDetails.accountHolder ?? "—"}</p></div>
+                  <div><p className="text-gray-400 text-xs">Account Number</p><p className="font-mono font-semibold">{r.refund.bankDetails.accountNumber ?? "—"}</p></div>
+                  <div><p className="text-gray-400 text-xs">IFSC Code</p><p className="font-mono font-semibold">{r.refund.bankDetails.ifsc ?? "—"}</p></div>
+                  {r.refund.bankDetails.bankName && <div className="col-span-2"><p className="text-gray-400 text-xs">Bank</p><p className="font-semibold">{r.refund.bankDetails.bankName}</p></div>}
+                </div>
+              )}
+              <p className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">
+                Transfer the refund to this account and then click <strong>Mark Refund Complete</strong> with the transaction reference.
+              </p>
+            </div>
+          )}
+
+          {/* COD without bank details */}
+          {r.paymentMethod === "cod" && !r.refund?.bankDetails && r.status !== "rejected" && r.status !== "refund_completed" && (
+            <div className="bg-orange-50 rounded-2xl border border-orange-200 p-4">
+              <p className="text-xs font-bold text-orange-700 mb-1">⚠ No Refund Account Provided</p>
+              <p className="text-xs text-orange-600">The customer did not provide bank/UPI details. Contact them at <strong>{r.userId?.email}</strong> or <strong>{r.userId?.phone}</strong> to collect refund account details.</p>
+            </div>
+          )}
 
           {/* Items */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5">
@@ -273,6 +327,16 @@ export default function AdminReturnDetailPage() {
             {/* APPROVED → Process Refund */}
             {r.status === "approved" && (
               <>
+                {/* Refund method info */}
+                <div className={cn("rounded-xl px-3 py-2.5 text-xs leading-relaxed",
+                  r.paymentMethod === "razorpay" ? "bg-green-50 border border-green-200 text-green-700" : "bg-orange-50 border border-orange-200 text-orange-700"
+                )}>
+                  {r.paymentMethod === "razorpay" ? (
+                    <>⚡ <strong>Automatic refund</strong> — clicking &quot;Confirm Refund&quot; will instantly initiate a Razorpay refund back to the customer&apos;s original payment method (UPI/card/bank).</>
+                  ) : (
+                    <>🏦 <strong>Manual transfer required</strong> — check the customer&apos;s bank/UPI details on the left, transfer the amount, then click &quot;Confirm Refund&quot; to record it.</>
+                  )}
+                </div>
                 {!showRefund ? (
                   <button onClick={() => { setShowRefund(true); setRefundAmount(String(r.orderTotal)); }}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a5c14] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#15490f] transition-colors">
