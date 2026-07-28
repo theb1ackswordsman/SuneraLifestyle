@@ -11,7 +11,7 @@ interface Coupon {
   _id: string; code: string; description: string;
   type: "percentage" | "flat" | "free_shipping" | "bogo";
   value: number; minOrderAmount: number; maxDiscountAmount?: number;
-  usageLimit?: number; usageCount: number;
+  usageLimit?: number; usageCount: number; userLimit?: number;
   isActive: boolean; startDate: string | null; endDate: string | null;
   createdAt: string;
 }
@@ -41,7 +41,7 @@ function isExpired(endDate: string | null) {
 const EMPTY_FORM = {
   code: "", description: "", type: "percentage" as Coupon["type"],
   value: "", minOrderAmount: "0", maxDiscountAmount: "",
-  usageLimit: "", startDate: "", endDate: "", isActive: true,
+  usageLimit: "", userLimit: "1", startDate: "", endDate: "", isActive: true,
 };
 
 function CouponModal({ coupon, onClose, onSave }: {
@@ -59,6 +59,7 @@ function CouponModal({ coupon, onClose, onSave }: {
         minOrderAmount: String(coupon.minOrderAmount ?? 0),
         maxDiscountAmount: coupon.maxDiscountAmount != null ? String(coupon.maxDiscountAmount) : "",
         usageLimit: coupon.usageLimit != null ? String(coupon.usageLimit) : "",
+        userLimit: coupon.userLimit != null ? String(coupon.userLimit) : "1",
         startDate: coupon.startDate ? coupon.startDate.slice(0, 10) : "",
         endDate:   coupon.endDate   ? coupon.endDate.slice(0, 10)   : "",
         isActive: coupon.isActive ?? true,
@@ -91,6 +92,7 @@ function CouponModal({ coupon, onClose, onSave }: {
         minOrderAmount: Number(form.minOrderAmount || 0),
         maxDiscountAmount: form.maxDiscountAmount ? Number(form.maxDiscountAmount) : undefined,
         usageLimit: form.usageLimit ? Number(form.usageLimit) : undefined,
+        userLimit: form.userLimit ? Number(form.userLimit) : undefined,
         startDate: new Date(form.startDate).toISOString(),
         endDate:   new Date(form.endDate).toISOString(),
         isActive: form.isActive,
@@ -168,9 +170,17 @@ function CouponModal({ coupon, onClose, onSave }: {
             )}
 
             <div>
-              <Label>Usage Limit (total)</Label>
+              <Label>Total Uses (All Users)</Label>
               <input type="number" value={form.usageLimit} onChange={(e) => set("usageLimit", e.target.value)}
-                min={1} placeholder="Unlimited" className={inp} />
+                min={1} placeholder="Leave empty for unlimited" className={inp} />
+              <p className="mt-1 text-[11px] text-gray-400">Total redemptions across all customers (Leave empty for unlimited)</p>
+            </div>
+
+            <div>
+              <Label>Limit Per Customer Account</Label>
+              <input type="number" value={form.userLimit} onChange={(e) => set("userLimit", e.target.value)}
+                min={1} placeholder="Leave empty for unlimited (Default: 1)" className={inp} />
+              <p className="mt-1 text-[11px] text-gray-400">Max uses allowed per user account (Leave empty for unlimited uses)</p>
             </div>
 
             <div>
@@ -360,9 +370,14 @@ export default function AdminCouponsPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className={cn("text-xs", c.usageLimit && c.usageCount >= c.usageLimit ? "text-red-500 font-semibold" : "text-gray-500")}>
-                      {c.usageCount}{c.usageLimit ? ` / ${c.usageLimit}` : ""} uses
-                    </span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className={cn("text-xs font-medium", c.usageLimit && c.usageCount >= c.usageLimit ? "text-red-500 font-semibold" : "text-gray-500")}>
+                        {c.usageCount}{c.usageLimit ? ` / ${c.usageLimit}` : ""} total uses
+                      </span>
+                      <span className="text-[11px] text-gray-400 font-medium">
+                        {c.userLimit != null ? `Max ${c.userLimit} use${c.userLimit > 1 ? "s" : ""} per account` : "Unlimited per account"}
+                      </span>
+                    </div>
                     <button onClick={() => handleToggle(c)} className="flex items-center gap-1.5">
                       {c.isActive
                         ? <ToggleRight className="h-6 w-6 text-[#1a5c14]" />
@@ -417,9 +432,14 @@ export default function AdminCouponsPage() {
                           {c.minOrderAmount > 0 ? `₹${c.minOrderAmount}` : "None"}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={cn("text-sm", c.usageLimit && c.usageCount >= c.usageLimit ? "text-red-500 font-semibold" : "text-gray-700")}>
-                            {c.usageCount}{c.usageLimit ? ` / ${c.usageLimit}` : " uses"}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className={cn("text-sm font-semibold", c.usageLimit && c.usageCount >= c.usageLimit ? "text-red-500" : "text-gray-900")}>
+                              {c.usageCount}{c.usageLimit ? ` / ${c.usageLimit}` : ""} uses
+                            </span>
+                            <span className="text-[11px] text-gray-400 font-medium">
+                              {c.userLimit != null ? `Max ${c.userLimit} per account` : "Unlimited per account"}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <span className={cn("text-sm", expired ? "text-red-500 font-semibold" : "text-gray-700")}>

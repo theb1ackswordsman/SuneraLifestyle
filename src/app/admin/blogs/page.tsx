@@ -432,18 +432,21 @@ function BlogEditor({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top bar */}
-      <div className="sticky top-0 z-20 flex items-center gap-4 border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-3.5">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </button>
-        <h2 className="flex-1 text-base font-black text-gray-900 truncate">
-          {editingBlog ? "Edit Blog Post" : "New Blog Post"}
-        </h2>
-        <div className="flex items-center gap-2">
+      <div className="sticky top-0 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-gray-200 bg-white px-3 py-2.5 sm:px-6 lg:px-8 sm:py-3.5 shadow-2xs">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back</span>
+          </button>
+          <h2 className="text-sm sm:text-base font-black text-gray-900 truncate min-w-0">
+            {editingBlog ? "Edit Blog Post" : "New Blog Post"}
+          </h2>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto w-full sm:w-auto">
           <button
             onClick={onBack}
             className="hidden sm:block rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
@@ -453,45 +456,45 @@ function BlogEditor({
           <button
             onClick={() => submit("draft")}
             disabled={loading}
-            className="rounded-xl border border-[#1a5c14] px-4 py-2 text-sm font-semibold text-[#1a5c14] hover:bg-[#1a5c14]/5 transition-colors disabled:opacity-60"
+            className="flex-1 sm:flex-none rounded-xl border border-[#1a5c14] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-[#1a5c14] hover:bg-[#1a5c14]/5 transition-colors disabled:opacity-60 text-center whitespace-nowrap"
           >
             Save Draft
           </button>
           <button
             onClick={() => submit("published")}
             disabled={loading}
-            className="flex items-center gap-2 rounded-xl bg-[#1a5c14] px-4 py-2 text-sm font-semibold text-white hover:bg-[#154a10] transition-colors disabled:opacity-60"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-[#1a5c14] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white hover:bg-[#154a10] transition-colors disabled:opacity-60 whitespace-nowrap"
           >
             {loading
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <Check className="h-4 w-4" />
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Check className="h-3.5 w-3.5" />
             }
-            Publish
+            <span>Publish</span>
           </button>
         </div>
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="mx-3 sm:mx-6 lg:mx-8 mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs sm:text-sm text-red-600">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
       {/* Two-column layout */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-4 sm:py-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 sm:gap-6 items-start">
 
         {/* ── Left: content form ── */}
-        <div className="space-y-5">
+        <div className="space-y-4 sm:space-y-5 min-w-0">
           {/* Title */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
             <Label required>Title</Label>
             <input
               value={form.title}
               onChange={(e) => patch({ title: e.target.value })}
               placeholder="Write your blog title here…"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-xl font-bold text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a5c14]/30 focus:border-[#1a5c14] focus:bg-white transition-colors"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 sm:px-4 sm:py-3 text-base sm:text-xl font-bold text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a5c14]/30 focus:border-[#1a5c14] focus:bg-white transition-colors"
             />
           </div>
 

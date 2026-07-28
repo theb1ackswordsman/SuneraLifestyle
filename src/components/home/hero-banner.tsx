@@ -22,6 +22,7 @@ const HERO_SLIDES: HeroSlide[] = [
     primaryHref: "/shop?type=clothes",
     secondaryLabel: "New Arrivals",
     secondaryHref: "/#new-arrivals",
+    mobileObjectPosition: "70% center",
   },
   {
     image: "/heroo3.png",

@@ -166,6 +166,85 @@ export async function PUT(
   }
 }
 
+// PATCH /api/admin/payments/[id] — add or delete private admin notes
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    if (!isAdmin(req)) return forbidden();
+    const { id } = await params;
+    const body = await req.json();
+    const { note, adminNote, deleteNoteId } = body as {
+      note?: string;
+      adminNote?: string;
+      deleteNoteId?: string;
+    };
+
+    await connectDB();
+
+    const adminId = req.headers.get("x-user-id");
+    const now = new Date();
+
+    // If deleting a specific note
+    if (deleteNoteId) {
+      const payment = await Payment.findByIdAndUpdate(
+        id,
+        {
+          $pull: { adminNotes: { _id: deleteNoteId } },
+          $push: {
+            logs: {
+              action:      "Deleted private admin note",
+              performedBy: "admin",
+              performedById: adminId ?? undefined,
+              at:          now,
+            },
+          },
+        },
+        { new: true }
+      );
+      if (!payment) return notFound("Payment record not found.");
+      return ok({ adminNotes: payment.adminNotes, adminNote: payment.adminNote }, "Note deleted.");
+    }
+
+    const noteToSave = (adminNote !== undefined ? adminNote : (note ?? "")).trim();
+    if (!noteToSave) return badRequest("Note content cannot be empty.");
+
+    const newNoteObj = {
+      note: noteToSave,
+      createdAt: now,
+      createdBy: "Admin",
+    };
+
+    const payment = await Payment.findByIdAndUpdate(
+      id,
+      {
+        $set: { adminNote: noteToSave },
+        $push: {
+          adminNotes: newNoteObj,
+          logs: {
+            action:      "Added private admin note",
+            performedBy: "admin",
+            performedById: adminId ?? undefined,
+            note:        noteToSave,
+            at:          now,
+          },
+        },
+      },
+      { new: true }
+    );
+
+    if (!payment) return notFound("Payment record not found.");
+
+    return ok(
+      { adminNotes: payment.adminNotes, adminNote: payment.adminNote },
+      "Private admin note added successfully."
+    );
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
 // ── Email helpers ───────────────────────────────────────────────────────────
 
 async function getEmail(userId: unknown): Promise<{ email: string; name: string }> {

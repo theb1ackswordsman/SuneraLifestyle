@@ -20,10 +20,10 @@ export function AuthLayout({ children, variant = "login" }: AuthLayoutProps) {
     <div className="bg-background">
       <Header />
 
-      {/* Split-colour spacer matching the fixed header height (~112 px = h-28).
-          Cream on the left half, white on the right — no colour break under the navbar. */}
-      <div className="h-28 flex shrink-0">
-        <div className={`hidden lg:block bg-[#f5f3ee] ${LEFT_W}`} />
+      {/* Split-colour spacer — desktop only (matches fixed header height ~112px).
+          Hidden on mobile so the form sits flush under the navbar. */}
+      <div className="hidden lg:flex h-28 shrink-0">
+        <div className={`bg-[#f5f3ee] ${LEFT_W}`} />
         <div className="flex-1 bg-background" />
       </div>
 
@@ -88,12 +88,8 @@ export function AuthLayout({ children, variant = "login" }: AuthLayoutProps) {
 
         {/* Right — form panel */}
         <div className="flex flex-1 justify-center">
-          <div className="w-full max-w-lg px-5 py-12 sm:px-8 lg:px-12 xl:px-14">
-            <div className="mb-5 lg:hidden">
-              <span className="inline-flex items-center rounded-full border border-brand-emerald/30 bg-brand-emerald/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-brand-emerald">
-                {isLogin ? "Members area" : "New here"}
-              </span>
-            </div>
+          <div className="w-full max-w-lg px-5 pt-36 pb-12 sm:px-8 lg:px-12 lg:pt-12 xl:px-14">
+
             {children}
           </div>
         </div>

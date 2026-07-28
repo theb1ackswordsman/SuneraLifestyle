@@ -131,6 +131,15 @@ export async function PUT(
       return ok(returnDoc, "Return rejected.");
     }
 
+    // ── cancel ────────────────────────────────────────────────────────────────
+    if (action === "cancel") {
+      returnDoc.status    = RETURN_STATUS.CANCELLED;
+      returnDoc.adminNote = body.adminNote?.trim() || "Return request cancelled by admin.";
+      returnDoc.timeline.push({ status: RETURN_STATUS.CANCELLED, message: returnDoc.adminNote, timestamp: new Date(), performedBy: "admin" });
+      await returnDoc.save();
+      return ok(returnDoc, "Return cancelled.");
+    }
+
     // ── process_refund (Razorpay) ─────────────────────────────────────────────
     if (action === "process_refund") {
       if (returnDoc.status !== RETURN_STATUS.APPROVED) {

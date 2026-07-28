@@ -9,15 +9,16 @@ export const metadata: Metadata = {
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ buyNow?: string; qty?: string }>;
+  searchParams: Promise<{ buyNow?: string; qty?: string; size?: string }>;
 }) {
   const params = await searchParams;
   const buyNowProductId = params.buyNow;
   const buyNowQty = params.qty ? Math.max(1, parseInt(params.qty, 10)) : 1;
+  const buyNowSize = params.size;
 
   return (
     <ShopLayout>
-      <CheckoutContent buyNowProductId={buyNowProductId} buyNowQty={buyNowQty} />
+      <CheckoutContent buyNowProductId={buyNowProductId} buyNowQty={buyNowQty} buyNowSize={buyNowSize} />
     </ShopLayout>
   );
 }

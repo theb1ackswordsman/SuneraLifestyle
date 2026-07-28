@@ -574,8 +574,13 @@ export function ReviewSection({ productId, initialSummary }: ReviewSectionProps)
   // Render
   // ---------------------------------------------------------------------------
 
+  if (!loading && summary.count === 0 && reviews.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="mt-14 space-y-8">
+      <h2 className="text-2xl font-black tracking-tight">Customer Reviews</h2>
       {/* ------------------------------------------------------------------ */}
       {/* Summary Card                                                        */}
       {/* ------------------------------------------------------------------ */}
@@ -734,107 +739,108 @@ export function ReviewSection({ productId, initialSummary }: ReviewSectionProps)
             )}
           </div>
         ) : (
-          reviews.map((review) => {
-            const helpful = helpfulState[review._id] ?? {
-              count: review.helpfulCount,
-              voted: false,
-            };
-            const initials = review.adminAdded
-              ? (review.adminAddedName ?? "A").charAt(0).toUpperCase()
-              : review.customerId?.name?.charAt(0)?.toUpperCase() ?? "?";
-            const displayName = review.adminAdded
-              ? (review.adminAddedName ?? "Anonymous")
-              : (review.customerId?.name ?? "Anonymous");
+          <div className="flex gap-3.5 sm:gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-none scroll-smooth">
+            {reviews.map((review) => {
+              const helpful = helpfulState[review._id] ?? {
+                count: review.helpfulCount,
+                voted: false,
+              };
+              const rawName = review.adminAdded
+                ? (review.adminAddedName ?? "Verified Customer")
+                : (review.customerId?.name ?? "Verified Customer");
+              const nameParts = rawName.trim().split(" ");
+              const displayName = nameParts.length > 1
+                ? `${nameParts[0]} ${nameParts[1][0]}.`
+                : nameParts[0] || "Verified Customer";
+              const initials = displayName.charAt(0).toUpperCase();
 
-            return (
-              <div
-                key={review._id}
-                className="rounded-2xl border border-border bg-background p-5 space-y-3"
-              >
-                {/* Row 1: avatar, name, badges, stars, date */}
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1a5c14]/10 text-sm font-bold text-[#1a5c14]">
-                      {initials}
-                    </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-semibold">{displayName}</span>
-                        {review.verifiedPurchase && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#1a5c14]/10 px-2 py-0.5 text-[10px] font-bold text-[#1a5c14]">
-                            <ShieldCheck className="h-2.5 w-2.5" /> Verified
-                          </span>
-                        )}
-                        {review.adminAdded && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">
-                            Admin
-                          </span>
-                        )}
+              return (
+                <div
+                  key={review._id}
+                  className="w-[260px] sm:w-[300px] shrink-0 snap-start rounded-2xl border border-border bg-background p-4 flex flex-col justify-between space-y-3 shadow-xs hover:shadow-md transition-shadow"
+                >
+                  <div className="space-y-2.5">
+                    {/* Header: Avatar, name, date, stars */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1a5c14]/10 text-xs font-bold text-[#1a5c14]">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-foreground truncate max-w-[110px]">{displayName}</span>
+                            {review.verifiedPurchase && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-[#1a5c14]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#1a5c14] shrink-0">
+                                <ShieldCheck className="h-2.5 w-2.5" /> Verified
+                              </span>
+                            )}
+                          </div>
+                          <StarDisplay rating={review.rating} size="sm" />
+                        </div>
                       </div>
-                      <StarDisplay rating={review.rating} size="sm" />
+                      <span className="text-[10px] text-muted-foreground shrink-0">{fmtDate(review.createdAt)}</span>
                     </div>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{fmtDate(review.createdAt)}</span>
-                </div>
 
-                {/* Row 2: title */}
-                {review.title && (
-                  <p className="text-sm font-bold leading-snug">{review.title}</p>
-                )}
-
-                {/* Row 3: body */}
-                <p className="text-sm leading-relaxed text-muted-foreground">{review.body}</p>
-
-                {/* Row 4: image thumbnails */}
-                {review.images.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {review.images.map((src, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
-                        className="relative h-16 w-16 overflow-hidden rounded-xl border border-border bg-muted transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a5c14]"
-                        aria-label={`View image ${idx + 1}`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={src}
-                          alt={`Review image ${idx + 1}`}
-                          className="h-full w-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Row 5: helpful + flag */}
-                <div className="flex items-center gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => handleHelpful(review._id)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                      helpful.voted
-                        ? "border-amber-400 bg-amber-50 text-amber-600"
-                        : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                    {/* Title */}
+                    {review.title && (
+                      <p className="text-xs font-bold leading-snug line-clamp-1 text-foreground">{review.title}</p>
                     )}
-                  >
-                    <ThumbsUp className={cn("h-3.5 w-3.5", helpful.voted && "fill-amber-400")} />
-                    Helpful{helpful.count > 0 ? ` (${helpful.count})` : ""}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleReport(review._id)}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                    aria-label="Report review"
-                  >
-                    <Flag className="h-3.5 w-3.5" />
-                    Report
-                  </button>
+
+                    {/* Body */}
+                    <p className="text-xs leading-relaxed text-muted-foreground line-clamp-3">{review.body}</p>
+
+                    {/* Image thumbnails */}
+                    {review.images.length > 0 && (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        {review.images.map((src, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
+                            className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-muted hover:opacity-80 transition-opacity"
+                            aria-label={`View image ${idx + 1}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={src}
+                              alt={`Review thumbnail ${idx + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Helpful + report */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => handleHelpful(review._id)}
+                      className={cn(
+                        "flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold transition-colors",
+                        helpful.voted
+                          ? "border-amber-400 bg-amber-50 text-amber-600"
+                          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                      )}
+                    >
+                      <ThumbsUp className={cn("h-3 w-3", helpful.voted && "fill-amber-400")} />
+                      Helpful{helpful.count > 0 ? ` (${helpful.count})` : ""}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReport(review._id)}
+                      className="flex items-center gap-1 text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label="Report review"
+                    >
+                      <Flag className="h-3 w-3" />
+                      Report
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
 
         {/* Load More */}
@@ -853,293 +859,6 @@ export function ReviewSection({ productId, initialSummary }: ReviewSectionProps)
               )}
             </button>
           </div>
-        )}
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Write a Review section                                             */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="rounded-2xl border border-border bg-background p-6 space-y-4">
-        <h3 className="text-lg font-bold">Write a Review</h3>
-
-        {/* Eligibility error */}
-        {eligibilityError && (
-          <div className="flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
-            <p>{eligibilityError}</p>
-          </div>
-        )}
-
-        {/* Form success */}
-        {formSuccess && (
-          <div className="flex items-start gap-2 rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-800">
-            <Check className="h-4 w-4 shrink-0 mt-0.5 text-green-600" />
-            <p>{formSuccess}</p>
-          </div>
-        )}
-
-        {/* My existing review */}
-        {myReview && !editMode && (
-          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Your Review
-              </p>
-              <div className="flex items-center gap-1.5">
-                {/* Status badge */}
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                    myReview.status === "approved"
-                      ? "bg-green-100 text-green-700"
-                      : myReview.status === "pending"
-                      ? "bg-amber-100 text-amber-700"
-                      : myReview.status === "rejected"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-gray-100 text-gray-600"
-                  )}
-                >
-                  {myReview.status.charAt(0).toUpperCase() + myReview.status.slice(1)}
-                </span>
-                <button
-                  type="button"
-                  onClick={startEdit}
-                  className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-muted"
-                >
-                  <Edit2 className="h-3 w-3" /> Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteMyReview}
-                  className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
-                >
-                  <Trash2 className="h-3 w-3" /> Delete
-                </button>
-              </div>
-            </div>
-            <StarDisplay rating={myReview.rating} size="sm" />
-            {myReview.title && (
-              <p className="text-sm font-bold">{myReview.title}</p>
-            )}
-            <p className="text-sm leading-relaxed text-muted-foreground">{myReview.body}</p>
-            {myReview.status === "rejected" && myReview.rejectionReason && (
-              <p className="text-xs text-red-600">
-                Rejection reason: {myReview.rejectionReason}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Inline edit form */}
-        {myReview && editMode && (
-          <form onSubmit={handleEdit} className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Rating <span className="text-destructive">*</span>
-              </label>
-              <StarInput value={editRating} onChange={setEditRating} />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Title
-              </label>
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="Summarise your experience"
-                maxLength={120}
-                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#1a5c14]/40"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Review <span className="text-destructive">*</span>
-              </label>
-              <textarea
-                value={editBody}
-                onChange={(e) => setEditBody(e.target.value)}
-                placeholder="Share your detailed experience..."
-                rows={4}
-                minLength={10}
-                className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#1a5c14]/40"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={editSubmitting || editRating === 0}
-                className="flex items-center gap-2 rounded-xl bg-[#1a5c14] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#155010] disabled:opacity-60"
-              >
-                {editSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save Changes
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditMode(false)}
-                className="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* CTA to open write form */}
-        {!myReview && !showWriteForm && !eligibilityError && (
-          <button
-            type="button"
-            onClick={() =>
-              requireAuth(() => {
-                setShowWriteForm(true);
-                setFormError("");
-                setFormSuccess("");
-              })
-            }
-            className="flex items-center gap-2 rounded-xl bg-[#1a5c14] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#155010]"
-          >
-            <Star className="h-4 w-4" />
-            Share Your Experience
-          </button>
-        )}
-
-        {/* Write form */}
-        {!myReview && showWriteForm && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Rating */}
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Overall Rating <span className="text-destructive">*</span>
-              </label>
-              <StarInput value={formRating} onChange={setFormRating} />
-            </div>
-
-            {/* Title */}
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Review Title
-              </label>
-              <input
-                type="text"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                placeholder="Summarise your experience (optional)"
-                maxLength={120}
-                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#1a5c14]/40"
-              />
-            </div>
-
-            {/* Body */}
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Your Review <span className="text-destructive">*</span>
-              </label>
-              <textarea
-                value={formBody}
-                onChange={(e) => setFormBody(e.target.value)}
-                placeholder="Share your detailed experience with this product..."
-                rows={5}
-                minLength={10}
-                required
-                className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#1a5c14]/40"
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Minimum 10 characters
-              </p>
-            </div>
-
-            {/* Image upload */}
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
-                Photos{" "}
-                <span className="font-normal text-muted-foreground/70">
-                  (up to 5)
-                </span>
-              </label>
-
-              {/* Previews */}
-              {imagePreviews.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2">
-                  {imagePreviews.map((src, idx) => (
-                    <div key={idx} className="relative h-16 w-16 shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={src}
-                        alt={`Preview ${idx + 1}`}
-                        className="h-full w-full rounded-xl object-cover border border-border"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(idx)}
-                        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background shadow"
-                        aria-label="Remove image"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {imageFiles.length < 5 && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 rounded-xl border border-dashed border-border px-4 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload Photos
-                </button>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handleImageChange}
-              />
-            </div>
-
-            {/* Form error */}
-            {formError && (
-              <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <p>{formError}</p>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="submit"
-                disabled={submitting || uploadingImages}
-                className="flex items-center gap-2 rounded-xl bg-[#1a5c14] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#155010] disabled:opacity-60"
-              >
-                {(submitting || uploadingImages) && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-                {uploadingImages ? "Uploading..." : submitting ? "Submitting..." : "Submit Review"}
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => {
-                  setShowWriteForm(false);
-                  setFormRating(0);
-                  setFormTitle("");
-                  setFormBody("");
-                  setImageFiles([]);
-                  setImagePreviews([]);
-                  setFormError("");
-                }}
-                className="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-60"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
         )}
       </div>
 

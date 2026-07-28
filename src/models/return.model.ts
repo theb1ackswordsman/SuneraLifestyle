@@ -5,6 +5,7 @@ export const RETURN_STATUS = {
   UNDER_REVIEW:      "under_review",
   APPROVED:          "approved",
   REJECTED:          "rejected",
+  CANCELLED:         "cancelled",
   REFUND_PROCESSING: "refund_processing",
   REFUND_COMPLETED:  "refund_completed",
 } as const;

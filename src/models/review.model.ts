@@ -72,7 +72,7 @@ const reviewSchema = new Schema<IReviewDocument>(
     body:             { type: String, required: true, trim: true, maxlength: 2000 },
     images:           { type: [String], default: [] },
     video:            { type: String },
-    status:           { type: String, enum: Object.values(REVIEW_STATUS), default: REVIEW_STATUS.PENDING },
+    status:           { type: String, enum: Object.values(REVIEW_STATUS), default: REVIEW_STATUS.APPROVED },
     verifiedPurchase: { type: Boolean, default: false },
     adminAdded:       { type: Boolean, default: false },
     adminAddedName:   { type: String, trim: true },

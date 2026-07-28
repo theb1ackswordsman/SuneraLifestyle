@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     isActive: true,
     deletedAt: null,
   })
-    .select("name slug basePrice compareAtPrice images reviewSummary.average reviewSummary.count isNewArrival isBestSeller stock")
+    .select("name slug basePrice compareAtPrice images variants reviewSummary.average reviewSummary.count isNewArrival isBestSeller stock")
     .lean<Record<string, unknown>[]>();
 
   const data = products.map((p) => {
@@ -36,6 +36,15 @@ export async function GET(req: NextRequest) {
       isNewArrival:  Boolean(p.isNewArrival),
       isBestSeller:  Boolean(p.isBestSeller),
       reviewSummary: { average: Number(rs?.average ?? 0), count: Number(rs?.count ?? 0) },
+      variants: Array.isArray(p.variants)
+        ? (p.variants as Array<Record<string, unknown>>).map((v) => ({
+            size: v.size ? String(v.size) : undefined,
+            color: v.color ? String(v.color) : undefined,
+            price: v.price != null ? Number(v.price) : undefined,
+            compareAtPrice: v.compareAtPrice != null ? Number(v.compareAtPrice) : undefined,
+            stock: v.stock != null ? Number(v.stock) : undefined,
+          }))
+        : [],
     };
   });
 

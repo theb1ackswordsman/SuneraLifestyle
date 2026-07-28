@@ -561,15 +561,15 @@ function BusinessTab({ settings, onChange, onSave }: {
     return (
       <div className="space-y-1">
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</label>
-        <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:border-[#1a5c14] focus-within:ring-1 focus-within:ring-[#1a5c14]/20 transition-colors">
+        <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-2.5 sm:px-3 py-2 bg-white focus-within:border-[#1a5c14] focus-within:ring-1 focus-within:ring-[#1a5c14]/20">
           <input
             type={show ? "text" : "password"}
             value={settings.business[field]}
             onChange={(e) => setBusiness(field, e.target.value)}
-            className="flex-1 text-sm font-mono text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
+            className="min-w-0 flex-1 text-xs sm:text-sm font-mono text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
             placeholder={field === "gst" ? "27AXXXX1234X1ZX" : "U52100MH2024PTC000001"}
           />
-          <button type="button" onClick={onToggle} className="shrink-0 text-gray-400 hover:text-gray-700" tabIndex={-1}>
+          <button type="button" onClick={onToggle} className="shrink-0 text-gray-400 hover:text-gray-700 p-0.5" tabIndex={-1}>
             {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
@@ -603,16 +603,16 @@ function PasswordInput({
   return (
     <div className="space-y-1">
       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</label>
-      <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:border-[#1a5c14] focus-within:ring-1 focus-within:ring-[#1a5c14]/20">
+      <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-2.5 sm:px-3 py-2 bg-white focus-within:border-[#1a5c14] focus-within:ring-1 focus-within:ring-[#1a5c14]/20">
         <input
           type={show ? "text" : "password"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           autoComplete={autoComplete}
-          className="flex-1 text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
+          className="min-w-0 flex-1 text-xs sm:text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-400"
         />
-        <button type="button" onClick={() => setShow((v) => !v)} className="shrink-0 text-gray-400 hover:text-gray-700" tabIndex={-1}>
+        <button type="button" onClick={() => setShow((v) => !v)} className="shrink-0 text-gray-400 hover:text-gray-700 p-0.5" tabIndex={-1}>
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
@@ -634,7 +634,7 @@ function TextInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white outline-none focus:border-[#1a5c14] focus:ring-1 focus:ring-[#1a5c14]/20 placeholder:text-gray-400"
+        className="w-full border border-gray-200 rounded-lg px-2.5 sm:px-3 py-2 text-xs sm:text-sm text-gray-800 bg-white outline-none focus:border-[#1a5c14] focus:ring-1 focus:ring-[#1a5c14]/20 placeholder:text-gray-400"
       />
     </div>
   );
@@ -846,7 +846,7 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-5 min-h-screen bg-gray-50">
+    <div className="p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 min-h-screen bg-gray-50">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a5c14]/10 shrink-0">
           <Settings className="h-5 w-5 text-[#1a5c14]" />
@@ -860,7 +860,7 @@ export default function AdminSettingsPage() {
       <div className="flex flex-col sm:flex-row gap-4 lg:gap-6">
         {/* Sidebar */}
         <nav className="sm:w-52 lg:w-56 shrink-0">
-          <div className="sm:hidden flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
+          <div className="sm:hidden flex gap-1.5 overflow-x-auto pb-1 -mx-3 px-3">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -898,7 +898,7 @@ export default function AdminSettingsPage() {
         </nav>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6">
+        <div className="flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm p-4 sm:p-6">
           {renderContent()}
         </div>
       </div>

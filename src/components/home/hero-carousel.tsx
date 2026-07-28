@@ -17,6 +17,8 @@ export interface HeroSlide {
   secondaryLabel?: string;
   secondaryHref?: string;
   textPosition?: "left" | "center";
+  /** CSS object-position used on mobile (< sm breakpoint) to fix cropping */
+  mobileObjectPosition?: string;
 }
 
 const AUTOPLAY = 5500;
@@ -69,6 +71,13 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
           className="absolute inset-0"
         >
           {/* Background image */}
+          {slide.mobileObjectPosition && (
+            <style>{`
+              @media (max-width: 639px) {
+                [data-hero-img="${current}"] { object-position: ${slide.mobileObjectPosition} !important; }
+              }
+            `}</style>
+          )}
           <Image
             src={slide.image}
             alt={slide.heading ?? `Slide ${current + 1}`}
@@ -76,6 +85,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
             className="object-cover"
             priority={current === 0}
             sizes="100vw"
+            {...(slide.mobileObjectPosition ? { "data-hero-img": String(current) } : {})}
           />
 
           {/* Shadow overlay — always present */}

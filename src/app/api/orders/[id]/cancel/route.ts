@@ -15,16 +15,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   await connectDB();
 
+  const userName = session.user.name ?? "Customer";
+
   // Single atomic operation: find by ownership + cancellable status, update in one query
   const order = await Order.findOneAndUpdate(
     { _id: id, userId: session.user._id, status: { $in: CANCELLABLE_STATUSES } },
     {
-      $set: { status: "cancelled" },
+      $set: {
+        status: "cancelled",
+        cancelledBy: {
+          role: "user",
+          name: userName,
+          at: new Date(),
+        },
+      },
       $push: {
         timeline: {
           status: "cancelled",
           timestamp: new Date(),
-          message: "Cancelled by user.",
+          message: `Cancelled by ${userName}`,
         },
       },
     },

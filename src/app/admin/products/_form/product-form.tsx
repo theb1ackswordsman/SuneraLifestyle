@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Category { _id: string; name: string; slug: string; parentId?: string | null }
 
-interface VariantRow { size: string; stock: string; price: string }
+interface VariantRow { size: string; color?: string; colorHex?: string; stock: string; price: string; images?: string[] }
 
 interface FormData {
   name: string; slug: string; description: string; shortDescription: string;
@@ -212,18 +212,31 @@ function ImageUploader({ images, onChange, onToast }: {
   );
 }
 
+const COLOR_PRESETS = [
+  { name: "Black",  hex: "#000000" },
+  { name: "White",  hex: "#ffffff" },
+  { name: "Red",    hex: "#ef4444" },
+  { name: "Navy",   hex: "#1e3a8a" },
+  { name: "Blue",   hex: "#3b82f6" },
+  { name: "Green",  hex: "#10b981" },
+  { name: "Beige",  hex: "#f5f5dc" },
+  { name: "Pink",   hex: "#ec4899" },
+  { name: "Yellow", hex: "#eab308" },
+];
+
 // ─── Variants Section ─────────────────────────────────────────────────────────
 function VariantsSection({
-  categoryType, variants, onChange, variantErrors, onClearVariantError,
+  categoryType, variants, onChange, variantErrors, onClearVariantError, uploadedImages,
 }: {
   categoryType: "clothing" | "ayurvedic" | null;
   variants: VariantRow[];
   onChange: (v: VariantRow[]) => void;
   variantErrors?: Set<string>;
   onClearVariantError?: (size: string) => void;
+  uploadedImages?: string[];
 }) {
   const [custom, setCustom] = useState("");
-  // Tracks which sizes have their price override input open
+  const [customColor, setCustomColor] = useState("");
   const [customPriceSizes, setCustomPriceSizes] = useState<Set<string>>(new Set());
 
   const presets = categoryType === "clothing" ? CLOTHING_PRESETS : categoryType === "ayurvedic" ? AYURVEDIC_PRESETS : [];
@@ -250,21 +263,29 @@ function VariantsSection({
     setCustom("");
   }
 
-  function update(size: string, field: "stock" | "price", value: string) {
-    onChange(variants.map((v) => v.size === size ? { ...v, [field]: value } : v));
+  function update(idx: number, field: keyof VariantRow, value: unknown) {
+    onChange(variants.map((v, i) => (i === idx ? { ...v, [field]: value } : v)));
   }
 
   function enableCustomPrice(size: string) {
     setCustomPriceSizes((prev) => new Set(prev).add(size));
   }
 
-  function clearCustomPrice(size: string) {
+  function clearCustomPrice(idx: number, size: string) {
     setCustomPriceSizes((prev) => { const next = new Set(prev); next.delete(size); return next; });
-    update(size, "price", "");
+    update(idx, "price", "");
+  }
+
+  function toggleColorImage(idx: number, imgUrl: string) {
+    const v = variants[idx];
+    const currentImgs = v.images ?? [];
+    const exists = currentImgs.includes(imgUrl);
+    const nextImgs = exists ? currentImgs.filter((url) => url !== imgUrl) : [...currentImgs, imgUrl];
+    update(idx, "images", nextImgs);
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Preset toggles */}
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">Quick Add {label}s</p>
@@ -301,61 +322,143 @@ function VariantsSection({
 
       {/* Variant rows */}
       {variants.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Set Stock &amp; Price per {label}</p>
-          <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
-            <div className="grid grid-cols-[1fr_1fr_1.5fr_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-400">
-              <span>{label}</span><span>Stock *</span><span>Price ₹</span><span></span>
-            </div>
-            {variants.map((v) => {
+        <div className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Set Color, Stock &amp; Price per {label}</p>
+          <div className="space-y-3">
+            {variants.map((v, idx) => {
               const isCustom = customPriceSizes.has(v.size) || v.price !== "";
               const hasStockErr = variantErrors?.has(v.size);
               return (
-                <div id={`variant-row-${v.size}`} key={v.size} className="grid grid-cols-[1fr_1fr_1.5fr_auto] gap-3 items-center px-4 py-3">
-                  <span className={cn("text-sm font-bold", hasStockErr ? "text-red-600" : "text-gray-800")}>{v.size}</span>
-                  <div>
-                    <input
-                      type="number" min="0" value={v.stock}
-                      onChange={(e) => { update(v.size, "stock", e.target.value); onClearVariantError?.(v.size); }}
-                      placeholder="0"
-                      className={cn(
-                        "w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1",
-                        hasStockErr
-                          ? "border border-red-400 focus:border-red-500 focus:ring-red-400"
-                          : "border border-gray-200 focus:border-[#1a5c14] focus:ring-[#1a5c14]"
-                      )}
-                    />
-                    {hasStockErr && <p className="mt-0.5 text-[10px] font-medium text-red-500">Stock is required</p>}
-                  </div>
-                  {isCustom ? (
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="number" min="0" step="0.01" value={v.price}
-                        onChange={(e) => update(v.size, "price", e.target.value)}
-                        placeholder="Enter price"
-                        // eslint-disable-next-line jsx-a11y/no-autofocus
-                        autoFocus={customPriceSizes.has(v.size) && v.price === ""}
-                        className="w-full rounded-lg border border-[#1a5c14] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
-                      />
-                      <button type="button" onClick={() => clearCustomPrice(v.size)} title="Reset to selling price"
-                        className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button type="button" onClick={() => enableCustomPrice(v.size)}
-                      className="flex w-full items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-500 hover:border-[#1a5c14] hover:text-[#1a5c14] transition-all">
-                      <Check className="h-3 w-3 text-green-600 shrink-0" />
-                      Same as selling price &nbsp;·&nbsp; <span className="underline">Set price</span>
+                <div id={`variant-row-${v.size}`} key={idx} className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3 shadow-2xs">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                    <span className={cn("text-sm font-black uppercase tracking-wide", hasStockErr ? "text-red-600" : "text-gray-900")}>
+                      {label}: {v.size}
+                    </span>
+
+                    <button type="button" onClick={() => {
+                      onChange(variants.filter((_, i) => i !== idx));
+                      setCustomPriceSizes((prev) => { const next = new Set(prev); next.delete(v.size); return next; });
+                    }}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                      <X className="h-4 w-4" />
                     </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+                    {/* Color Input */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase text-gray-400 mb-1">Color Name (Optional)</label>
+                      <div className="flex items-center gap-1.5">
+                        {v.colorHex && (
+                          <span className="h-4 w-4 rounded-full border border-gray-300 shrink-0" style={{ backgroundColor: v.colorHex }} />
+                        )}
+                        <input
+                          type="text"
+                          value={v.color ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const matched = COLOR_PRESETS.find((c) => c.name.toLowerCase() === val.trim().toLowerCase());
+                            update(idx, "color", val);
+                            if (matched) update(idx, "colorHex", matched.hex);
+                          }}
+                          placeholder="e.g. Black, Red, Navy"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold focus:border-[#1a5c14] focus:outline-none"
+                        />
+                      </div>
+                      {/* Color preset quick pick */}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {COLOR_PRESETS.map((c) => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => { update(idx, "color", c.name); update(idx, "colorHex", c.hex); }}
+                            className={cn(
+                              "flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-colors",
+                              v.color?.toLowerCase() === c.name.toLowerCase() ? "border-[#1a5c14] bg-green-50 text-[#1a5c14]" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                            )}
+                          >
+                            <span className="h-2.5 w-2.5 rounded-full border border-black/10" style={{ backgroundColor: c.hex }} />
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Stock Input */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase text-gray-400 mb-1">Stock *</label>
+                      <input
+                        type="number" min="0" value={v.stock}
+                        onChange={(e) => { update(idx, "stock", e.target.value); onClearVariantError?.(v.size); }}
+                        placeholder="0"
+                        className={cn(
+                          "w-full rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1",
+                          hasStockErr
+                            ? "border border-red-400 focus:border-red-500 focus:ring-red-400"
+                            : "border border-gray-200 focus:border-[#1a5c14] focus:ring-[#1a5c14]"
+                        )}
+                      />
+                      {hasStockErr && <p className="mt-0.5 text-[10px] font-medium text-red-500">Stock is required</p>}
+                    </div>
+
+                    {/* Price Override */}
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase text-gray-400 mb-1">Price ₹</label>
+                      {isCustom ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number" min="0" step="0.01" value={v.price}
+                            onChange={(e) => update(idx, "price", e.target.value)}
+                            placeholder="Enter price"
+                            className="w-full rounded-lg border border-[#1a5c14] px-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
+                          />
+                          <button type="button" onClick={() => clearCustomPrice(idx, v.size)} title="Reset to selling price"
+                            className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => enableCustomPrice(v.size)}
+                          className="flex w-full items-center justify-between rounded-lg border border-dashed border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-500 hover:border-[#1a5c14] hover:text-[#1a5c14] transition-all">
+                          <span className="truncate">Same as base price</span>
+                          <span className="underline font-bold shrink-0">Set</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Color Specific Images Selector */}
+                  {uploadedImages && uploadedImages.length > 0 && (
+                    <div className="border-t border-gray-100 pt-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">
+                        Map Images for {v.color ? `"${v.color}"` : "this variant"} <span className="font-normal text-gray-400">(Click to attach photos)</span>
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {uploadedImages.map((imgUrl, imgIdx) => {
+                          const attached = (v.images ?? []).includes(imgUrl);
+                          return (
+                            <button
+                              key={imgIdx}
+                              type="button"
+                              onClick={() => toggleColorImage(idx, imgUrl)}
+                              className={cn(
+                                "relative aspect-square h-12 w-12 overflow-hidden rounded-lg border-2 transition-all",
+                                attached ? "border-[#1a5c14] ring-2 ring-[#1a5c14]/30" : "border-gray-200 opacity-60 hover:opacity-100"
+                              )}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={imgUrl} alt="" className="h-full w-full object-cover" />
+                              {attached && (
+                                <div className="absolute inset-0 bg-[#1a5c14]/20 flex items-center justify-center">
+                                  <Check className="h-4 w-4 text-white drop-shadow-md" strokeWidth={3} />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
-                  <button type="button" onClick={() => {
-                    onChange(variants.filter((x) => x.size !== v.size));
-                    setCustomPriceSizes((prev) => { const next = new Set(prev); next.delete(v.size); return next; });
-                  }}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
-                    <X className="h-4 w-4" />
-                  </button>
                 </div>
               );
             })}
@@ -452,11 +555,13 @@ export default function ProductForm({ productId }: Props) {
       });
       setImages(p.images ?? []);
       setVariants((p.variants ?? [])
-        .filter((v: { size?: string }) => v.size)
-        .map((v: { size: string; stock: number; price?: number }) => ({
-          size:  v.size,
-          stock: String(v.stock ?? 0),
-          price: v.price ? String(v.price) : "",
+        .map((v: { size?: string; color?: string; colorHex?: string; stock: number; price?: number; images?: string[] }) => ({
+          size:     v.size ?? "",
+          color:    v.color ?? "",
+          colorHex: v.colorHex ?? "",
+          stock:    String(v.stock ?? 0),
+          price:    v.price ? String(v.price) : "",
+          images:   v.images ?? [],
         })));
     } finally {
       setLoadingProduct(false);
@@ -529,10 +634,13 @@ export default function ProductForm({ productId }: Props) {
         ingredients:      form.ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
         images,
         variants:         variants.map((v) => ({
-          sku:   `${form.sku.trim()}-${v.size.replace(/\s/g, "")}`,
-          size:  v.size,
-          stock: parseInt(v.stock, 10) || 0,
-          price: v.price ? parseFloat(v.price) : undefined,
+          sku:      `${form.sku.trim()}-${(v.color ? v.color + "-" : "") + v.size}`.replace(/\s/g, ""),
+          size:     v.size || undefined,
+          color:    v.color || undefined,
+          colorHex: v.colorHex || undefined,
+          stock:    parseInt(v.stock, 10) || 0,
+          price:    v.price ? parseFloat(v.price) : undefined,
+          images:   v.images && v.images.length > 0 ? v.images : undefined,
         })),
         isActive:   form.isActive,
         isFeatured: form.isFeatured,
@@ -708,7 +816,7 @@ export default function ProductForm({ productId }: Props) {
       </Section>
 
       {/* Sizes / Variants */}
-      <Section icon={Layers} title="Sizes / Pack Options">
+      <Section icon={Layers} title="Sizes & Color Variants">
         <VariantsSection
           categoryType={categoryType}
           variants={variants}
@@ -717,6 +825,7 @@ export default function ProductForm({ productId }: Props) {
           onClearVariantError={(size) =>
             setVariantErrors((prev) => { const next = new Set(prev); next.delete(size); return next; })
           }
+          uploadedImages={images}
         />
       </Section>
 

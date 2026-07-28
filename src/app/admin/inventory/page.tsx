@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import {
   Package,
   ChevronLeft,
@@ -518,8 +518,8 @@ export default function AdminInventoryPage() {
                   const hasVariants = Boolean(p.variants && p.variants.length > 0);
                   const isExpanded  = expandedId === p._id;
                   return (
-                    <>
-                      <tr key={p._id}
+                    <Fragment key={p._id}>
+                      <tr
                         className={cn(
                           "transition-colors",
                           editingKey === p._id ? "bg-[#1a5c14]/5" : "hover:bg-gray-50/50"
@@ -638,7 +638,7 @@ export default function AdminInventoryPage() {
                           </tr>
                         );
                       })}
-                    </>
+                    </Fragment>
                   );
                 })
               )}

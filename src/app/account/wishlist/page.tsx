@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ShopLayout } from "@/components/layout/shop-layout";
-import { ArrowLeft, Heart, Sparkles } from "lucide-react";
+import { ArrowLeft, Heart } from "lucide-react";
 
 export default function WishlistPage() {
   return (
     <ShopLayout>
-      <div className="container-padded pt-32 pb-16">
+      <div className="container-padded pt-28 sm:pt-32 pb-16">
         <div className="max-w-4xl mx-auto">
           <Link
             href="/account"
@@ -15,20 +15,14 @@ export default function WishlistPage() {
             Back to Account
           </Link>
 
-          <div className="flex items-center gap-3 mb-8">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50">
-              <Heart className="h-5 w-5 text-rose-500" />
-            </div>
+          <div className="mb-8">
             <h1 className="text-2xl font-black text-foreground">Wishlist</h1>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-16 flex flex-col items-center text-center">
-            <div className="relative mb-6">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-rose-50">
-                <Heart className="h-10 w-10 text-rose-300" />
-              </div>
-              <div className="absolute -top-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-white border border-border shadow-soft">
-                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+            <div className="mb-6">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
+                <Heart className="h-10 w-10 text-muted-foreground/60" />
               </div>
             </div>
             <h2 className="text-xl font-bold text-foreground mb-2">Your wishlist is empty</h2>

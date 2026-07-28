@@ -31,6 +31,7 @@ const orderItemSchema = new Schema(
       flavor: String,
       weight: String,
     },
+    status: { type: String, enum: Object.values(ORDER_STATUS), default: ORDER_STATUS.PENDING },
   },
   { _id: true }
 );
@@ -65,6 +66,11 @@ export interface IOrderDocument extends Document {
   trackingUrl?: string;
   estimatedDelivery?: Date;
   notes?: string;
+  cancelledBy?: {
+    role: "user" | "admin";
+    name: string;
+    at?: Date;
+  };
   timeline: { status: OrderStatus; timestamp: Date; message?: string }[];
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
@@ -98,6 +104,11 @@ const orderSchema = new Schema<IOrderDocument>(
     trackingUrl: { type: String },
     estimatedDelivery: { type: Date },
     notes: { type: String },
+    cancelledBy: {
+      role: { type: String, enum: ["user", "admin"] },
+      name: { type: String },
+      at:   { type: Date },
+    },
     timeline: { type: [timelineSchema], default: [] },
     razorpayOrderId: { type: String },
     razorpayPaymentId: { type: String },

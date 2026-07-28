@@ -35,7 +35,7 @@ function Stars({ rating, className }: { rating: number; className?: string }) {
   );
 }
 
-const TABS = ["Description", "Highlights", "Reviews"] as const;
+const TABS = ["Description", "Highlights"] as const;
 
 function deriveBadge(p: ProductDetail | RelatedProduct): "new" | "sale" | "bestseller" | undefined {
   if (p.isBestSeller) return "bestseller";
@@ -44,10 +44,34 @@ function deriveBadge(p: ProductDetail | RelatedProduct): "new" | "sale" | "bests
 }
 
 export function ProductView({ product, related }: { product: ProductDetail; related: RelatedProduct[] }) {
-  const gallery = product.images.length ? product.images : [];
+  // Deduplicated colors from variants with assigned images
+  const variantColors = product.variants
+    .filter((v) => v.color)
+    .reduce<Array<{ name: string; hex?: string; images: string[] }>>((acc, v) => {
+      const colorName = String(v.color).trim();
+      const existing = acc.find((x) => x.name.toLowerCase() === colorName.toLowerCase());
+      const vImages = Array.isArray(v.images) ? v.images.filter(Boolean) : [];
+      if (!existing) {
+        acc.push({ name: colorName, hex: v.colorHex, images: vImages });
+      } else if (vImages.length > 0) {
+        vImages.forEach((img) => { if (!existing.images.includes(img)) existing.images.push(img); });
+      }
+      return acc;
+    }, []);
 
-  // Deduplicated variants with stock info
-  const variantSizes = product.variants
+  const [selectedColor, setSelectedColor] = useState(variantColors[0]?.name ?? "");
+
+  // Determine active gallery images (if color has specific images, use them; else fallback to product main images)
+  const activeColorObj = variantColors.find((c) => c.name.toLowerCase() === selectedColor.toLowerCase());
+  const activeColorImages = activeColorObj?.images ?? [];
+  const gallery = activeColorImages.length > 0 ? activeColorImages : product.images.length > 0 ? product.images : [];
+
+  // Deduplicated sizes for the selected color (or all sizes)
+  const availableVariants = selectedColor
+    ? product.variants.filter((v) => !v.color || v.color.toLowerCase() === selectedColor.toLowerCase())
+    : product.variants;
+
+  const variantSizes = (availableVariants.length > 0 ? availableVariants : product.variants)
     .filter((v) => v.size)
     .reduce<Array<{ size: string; stock: number; price?: number }>>((acc, v) => {
       if (!acc.find((x) => x.size === v.size)) {
@@ -77,9 +101,19 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   // Hydrate wishlist state from localStorage after mount
   useEffect(() => { setWishlisted(isWishlisted(String(product._id))); }, [product._id]);
 
+  // Handle color change and reset active image index to 0
+  const handleColorChange = (colorName: string) => {
+    setSelectedColor(colorName);
+    setActiveImg(0);
+    // Auto-select first available size for this color
+    const newColorVariants = product.variants.filter((v) => v.color?.toLowerCase() === colorName.toLowerCase());
+    const firstSize = newColorVariants.find((v) => v.size)?.size;
+    if (firstSize) setSelectedSize(firstSize);
+  };
+
   // Price from selected variant (if it has an override), else base price
-  const activeVariant = variantSizes.find((v) => v.size === selectedSize);
-  const displayPrice = activeVariant?.price ?? product.basePrice;
+  const activeVariant = availableVariants.find((v) => String(v.size ?? "").trim() === String(selectedSize ?? "").trim());
+  const displayPrice = activeVariant?.price != null && activeVariant.price > 0 ? activeVariant.price : product.basePrice;
 
   const discount =
     product.compareAtPrice && product.compareAtPrice > displayPrice
@@ -88,7 +122,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
 
   function addToCart() {
     if (!user) { requireAuth(() => {}); return; }
-    cartAdd(String(product._id), qty);
+    cartAdd(String(product._id), qty, selectedSize || undefined, selectedColor || undefined);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
   }
@@ -101,19 +135,21 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
 
   function handleBuyNow() {
     if (!user) { requireAuth(() => {}); return; }
-    router.push(`/checkout?buyNow=${product._id}&qty=${qty}`);
+    const sizeParam = selectedSize ? `&size=${encodeURIComponent(selectedSize)}` : "";
+    const colorParam = selectedColor ? `&color=${encodeURIComponent(selectedColor)}` : "";
+    router.push(`/checkout?buyNow=${product._id}&qty=${qty}${sizeParam}${colorParam}`);
   }
 
   return (
-    <div className="pt-20 lg:pt-24">
-      <div className="container-padded py-8">
+    <div className="pt-28 sm:pt-32">
+      <div className="container-padded py-4 sm:py-8">
         {/* Breadcrumb */}
-        <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+        <nav className="mb-4 sm:mb-6 flex flex-wrap items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs text-muted-foreground">
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
           <ChevronRight className="h-3 w-3" />
           <Link href="/shop" className="hover:text-foreground transition-colors">Shop</Link>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground line-clamp-1">{product.name}</span>
+          <span className="text-foreground line-clamp-1 max-w-[140px] sm:max-w-none">{product.name}</span>
         </nav>
 
         {/* Main */}
@@ -175,7 +211,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
             <p className="text-xs font-semibold uppercase tracking-widest text-brand-emerald">
               {product.category.name}
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{product.name}</h1>
+            <h1 className="mt-1.5 text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl leading-tight">{product.name}</h1>
 
             {/* Rating */}
             <div className="mt-3 flex items-center gap-2">
@@ -200,6 +236,61 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Inclusive of all taxes</p>
 
+            {/* Quick Action Buttons right after Price */}
+            {!outOfStock ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                <div className="flex items-center rounded-xl border border-border shrink-0 bg-background">
+                  <button
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    className="flex h-11 w-9 items-center justify-center rounded-l-xl transition-colors hover:bg-muted"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="w-7 text-center text-xs font-bold">{qty}</span>
+                  <button
+                    onClick={() => setQty((q) => q + 1)}
+                    className="flex h-11 w-9 items-center justify-center rounded-r-xl transition-colors hover:bg-muted"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <Button variant="primary" size="lg" onClick={addToCart} className="flex-1 min-w-[130px] h-11 text-xs font-bold">
+                  {added ? (
+                    <><Check className="h-4 w-4" /> Added to Cart</>
+                  ) : (
+                    <><ShoppingBag className="h-4 w-4" /> Add to Cart</>
+                  )}
+                </Button>
+
+                <Button variant="default" size="lg" onClick={handleBuyNow} className="flex-1 min-w-[130px] h-11 text-xs font-bold bg-[#1a5c14] hover:bg-[#103a0c] text-white">
+                  Buy Now
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon-lg"
+                  onClick={handleWishlist}
+                  aria-label="Add to wishlist"
+                  className="h-11 w-11 shrink-0"
+                >
+                  <Heart className={cn("h-5 w-5", wishlisted && "fill-rose-500 text-rose-500")} />
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-4 flex items-center gap-3 rounded-2xl border-2 border-red-200 bg-red-50 px-4 py-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100">
+                  <BellRing className="h-4 w-4 text-red-600" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-red-700">Out of Stock</p>
+                  <p className="text-[11px] text-red-500 mt-0.5">We will inform you when back in stock.</p>
+                </div>
+              </div>
+            )}
+
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">{product.description}</p>
 
             {/* Benefits preview */}
@@ -212,6 +303,39 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
                   </li>
                 ))}
               </ul>
+            )}
+
+            {/* Color selector */}
+            {variantColors.length > 0 && (
+              <div className="mt-6">
+                <p className="mb-2 text-sm font-semibold">Color: <span className="text-[#1a5c14] font-bold">{selectedColor}</span></p>
+                <div className="flex flex-wrap gap-2.5">
+                  {variantColors.map((c) => {
+                    const isSelected = selectedColor.toLowerCase() === c.name.toLowerCase();
+                    return (
+                      <button
+                        key={c.name}
+                        type="button"
+                        onClick={() => handleColorChange(c.name)}
+                        className={cn(
+                          "flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all",
+                          isSelected
+                            ? "border-[#1a5c14] bg-[#1a5c14]/10 text-[#1a5c14] ring-2 ring-[#1a5c14]/20 shadow-xs"
+                            : "border-border hover:border-foreground/30 bg-background text-foreground"
+                        )}
+                      >
+                        {c.hex && (
+                          <span
+                            className="h-4 w-4 rounded-full border border-black/20 shrink-0 shadow-2xs"
+                            style={{ backgroundColor: c.hex }}
+                          />
+                        )}
+                        <span>{c.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* Size / Pack selector */}
@@ -247,88 +371,17 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               </div>
             )}
 
-            {/* Quantity + actions */}
-            {outOfStock ? (
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center gap-3 rounded-2xl border-2 border-red-200 bg-red-50 px-5 py-4">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100">
-                    <BellRing className="h-4 w-4 text-red-600" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-red-700">Out of Stock</p>
-                    <p className="text-xs text-red-500 mt-0.5">We will inform you when this product is back in stock.</p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={handleWishlist}
-                  className="w-full border-2"
-                >
-                  <Heart className={cn("h-4 w-4 mr-2", wishlisted && "fill-rose-500 text-rose-500")} />
-                  {wishlisted ? "Saved to Wishlist" : "Save to Wishlist"}
-                </Button>
-              </div>
-            ) : (
-              <>
-                {/* Row 1: Quantity + Add to Cart */}
-                <div className="mt-6 flex items-center gap-2">
-                  <div className="flex items-center rounded-xl border border-border shrink-0">
-                    <button
-                      onClick={() => setQty((q) => Math.max(1, q - 1))}
-                      className="flex h-9 w-9 items-center justify-center rounded-l-xl transition-colors hover:bg-muted"
-                      aria-label="Decrease quantity"
-                    >
-                      <Minus className="h-3.5 w-3.5" />
-                    </button>
-                    <span className="w-8 text-center text-sm font-bold">{qty}</span>
-                    <button
-                      onClick={() => setQty((q) => q + 1)}
-                      className="flex h-9 w-9 items-center justify-center rounded-r-xl transition-colors hover:bg-muted"
-                      aria-label="Increase quantity"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  <Button variant="primary" size="lg" onClick={addToCart} className="flex-1">
-                    {added ? (
-                      <><Check className="h-4 w-4" /> Added to Cart</>
-                    ) : (
-                      <><ShoppingBag className="h-4 w-4" /> Add to Cart</>
-                    )}
-                  </Button>
-                </div>
-
-                {/* Row 2: Buy It Now + Wishlist */}
-                <div className="mt-3 flex items-center gap-2">
-                  <Button variant="default" size="lg" className="flex-1" onClick={handleBuyNow}>
-                    Buy It Now
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon-lg"
-                    onClick={handleWishlist}
-                    aria-label="Add to wishlist"
-                    className="h-11 w-11 shrink-0"
-                  >
-                    <Heart className={cn("h-5 w-5", wishlisted && "fill-rose-500 text-rose-500")} />
-                  </Button>
-                </div>
-              </>
-            )}
-
             {/* Trust row */}
-            <div className="mt-7 grid grid-cols-3 gap-3 border-t border-border pt-6">
+            <div className="mt-6 sm:mt-7 grid grid-cols-3 gap-2 sm:gap-3 border-t border-border pt-5 sm:pt-6">
               {[
                 { icon: Truck, label: "Free delivery", sub: "Over ₹999" },
                 { icon: RefreshCw, label: "7-day returns", sub: "Hassle-free" },
                 { icon: ShieldCheck, label: "100% authentic", sub: "Lab tested" },
               ].map(({ icon: Icon, label, sub }) => (
-                <div key={label} className="flex flex-col items-center gap-1.5 text-center">
-                  <Icon className="h-5 w-5 text-brand-emerald" />
-                  <p className="text-xs font-semibold leading-tight">{label}</p>
-                  <p className="text-[11px] text-muted-foreground">{sub}</p>
+                <div key={label} className="flex flex-col items-center gap-1 text-center">
+                  <Icon className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-brand-emerald" />
+                  <p className="text-[11px] sm:text-xs font-semibold leading-tight">{label}</p>
+                  <p className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight">{sub}</p>
                 </div>
               ))}
             </div>
@@ -338,7 +391,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
         {/* Tabs */}
         <div className="mt-14">
           <div className="flex gap-6 border-b border-border">
-            {TABS.map((t) => (
+            {(["Description", "Highlights"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -348,7 +401,6 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
                 )}
               >
                 {t}
-                {t === "Reviews" && <span className="ml-1 text-muted-foreground">({reviewCount.toLocaleString()})</span>}
                 {tab === t && (
                   <motion.span layoutId="pdp-tab" className="absolute inset-x-0 bottom-0 h-0.5 bg-brand-emerald" />
                 )}
@@ -375,16 +427,15 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
                 ))}
               </ul>
             )}
-
-            {tab === "Reviews" && (
-              <ReviewSection
-                productId={product._id}
-                productSlug={product.slug}
-                initialSummary={product.reviewSummary}
-              />
-            )}
           </div>
         </div>
+
+        {/* Customer Reviews — rendered before 'You may also like' (hidden if 0 reviews) */}
+        <ReviewSection
+          productId={product._id}
+          productSlug={product.slug}
+          initialSummary={product.reviewSummary}
+        />
 
         {/* Related */}
         {related.length > 0 && (

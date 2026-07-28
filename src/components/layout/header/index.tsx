@@ -48,6 +48,19 @@ const NAV_LINKS = [
 
 // ─── Announcement Bar ─────────────────────────────────────────────────────────
 function AnnouncementBar({ visible }: { visible: boolean }) {
+  const [freeAbove, setFreeAbove] = useState(999);
+
+  useEffect(() => {
+    fetch("/api/settings/public")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success && j.data?.shipping?.freeAbove) {
+          setFreeAbove(j.data.shipping.freeAbove);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div
       className={cn(
@@ -66,7 +79,7 @@ function AnnouncementBar({ visible }: { visible: boolean }) {
           </span>
         </div>
         <p className="font-semibold text-center flex-1 sm:flex-none">
-          🚀 Free Shipping on all orders above ₹999!
+          🚀 Free Shipping on all orders above ₹{freeAbove}!
         </p>
         <span className="hidden sm:block text-white/70">🇮🇳 India&nbsp;|&nbsp;₹&nbsp;INR</span>
       </div>
@@ -618,7 +631,12 @@ function SearchOverlay({ visible, onClose }: { visible: boolean; onClose: () => 
 }
 
 // ─── Mobile Drawer ────────────────────────────────────────────────────────────
-function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+function MobileDrawer({ open, onClose, user, onLogout }: {
+  open: boolean;
+  onClose: () => void;
+  user: SessionUser | null;
+  onLogout: () => void;
+}) {
   const [shopOpen,  setShopOpen]  = useState(false);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [navCats,   setNavCats]   = useState<NavCategory[]>([]);
@@ -790,14 +808,44 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
               </div>
             </nav>
 
-            {/* CTA */}
-            <div className="space-y-2 border-t border-border p-4">
-              <Link href={ROUTES.LOGIN} onClick={onClose} className="block">
-                <Button variant="default" className="w-full">Sign In</Button>
-              </Link>
-              <Link href={ROUTES.REGISTER} onClick={onClose} className="block">
-                <Button variant="outline" className="w-full">Create Account</Button>
-              </Link>
+            {/* CTA — conditional on auth state */}
+            <div className="border-t border-border p-4">
+              {user ? (
+                <div className="space-y-3">
+                  {/* Signed-in user info — tappable, routes by role */}
+                  <Link
+                    href={user.role === "admin" ? "/admin" : ROUTES.ACCOUNT}
+                    onClick={onClose}
+                    className="flex items-center gap-3 rounded-xl bg-muted px-4 py-3 transition-colors hover:bg-muted/70 active:bg-muted/50"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-emerald text-sm font-bold text-white">
+                      {user.name?.[0]?.toUpperCase() ?? "U"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {user.role === "admin" ? "Go to Admin Dashboard →" : "View Profile →"}
+                      </p>
+                    </div>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => { onLogout(); onClose(); }}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" /> Sign Out
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Link href={ROUTES.LOGIN} onClick={onClose} className="block">
+                    <Button variant="default" className="w-full">Sign In</Button>
+                  </Link>
+                  <Link href={ROUTES.REGISTER} onClick={onClose} className="block">
+                    <Button variant="outline" className="w-full">Create Account</Button>
+                  </Link>
+                </div>
+              )}
             </div>
           </motion.aside>
         </>
@@ -990,7 +1038,7 @@ export function Header() {
       </header>
 
       <SearchOverlay visible={searchOpen} onClose={() => setSearchOpen(false)} />
-      <MobileDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <MobileDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} user={user} onLogout={handleLogout} />
     </>
   );
 }

@@ -15,6 +15,8 @@ interface OrderItem {
   slug: string;
   price: number;
   quantity: number;
+  status?: string;
+  variant?: { size?: string };
 }
 
 interface Order {
@@ -34,18 +36,37 @@ interface Order {
   userId?: { name: string; email: string };
   shippingAddress?: { name: string; phone?: string; addressLine1: string; addressLine2?: string; city: string; state: string; pincode: string };
   items: OrderItem[];
+  cancelledBy?: { role: string; name: string; at?: string };
   timeline?: { status: string; message: string; timestamp: string }[];
 }
 
+function getCancelledByText(o: Order): string | null {
+  if (o.status !== "cancelled") return null;
+  if (o.cancelledBy?.name) {
+    return o.cancelledBy.role === "user" ? `Cancelled by ${o.cancelledBy.name}` : `Cancelled by Sunera Lifestyle`;
+  }
+  const cancelEntry = [...(o.timeline ?? [])].reverse().find((t) => t.status === "cancelled");
+  if (cancelEntry?.message) {
+    if (cancelEntry.message.toLowerCase().includes("user") || cancelEntry.message.toLowerCase().includes("customer")) {
+      return `Cancelled by ${o.userId?.name || o.shippingAddress?.name || "User"}`;
+    }
+    if (cancelEntry.message.toLowerCase().includes("sunera") || cancelEntry.message.toLowerCase().includes("admin")) {
+      return "Cancelled by Sunera Lifestyle";
+    }
+    return cancelEntry.message;
+  }
+  return "Cancelled by Sunera Lifestyle";
+}
+
 const STATUS_COLOR: Record<string, string> = {
-  pending:   "bg-yellow-100 text-yellow-700",
-  confirmed: "bg-blue-100 text-blue-700",
-  packed:    "bg-indigo-100 text-indigo-700",
-  shipped:   "bg-purple-100 text-purple-700",
-  delivered: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-700",
-  returned:  "bg-orange-100 text-orange-700",
-  refunded:  "bg-gray-100 text-gray-700",
+  pending:   "bg-yellow-100 text-yellow-700 border-yellow-200",
+  confirmed: "bg-blue-100 text-blue-700 border-blue-200",
+  packed:    "bg-indigo-100 text-indigo-700 border-indigo-200",
+  shipped:   "bg-purple-100 text-purple-700 border-purple-200",
+  delivered: "bg-green-100 text-green-700 border-green-200",
+  cancelled: "bg-red-100 text-red-700 border-red-200",
+  returned:  "bg-orange-100 text-orange-700 border-orange-200",
+  refunded:  "bg-gray-100 text-gray-700 border-gray-200",
 };
 
 const PAYMENT_STATUS_COLOR: Record<string, string> = {
@@ -68,7 +89,13 @@ function fmtPrice(n: number) {
 
 // ─── Order Detail Drawer ──────────────────────────────────────────────────────
 
-function OrderDrawer({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+function OrderDrawer({
+  orderId, onClose, onItemStatusChange,
+}: {
+  orderId: string;
+  onClose: () => void;
+  onItemStatusChange: (orderId: string, itemId: string, itemStatus: string) => void;
+}) {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -116,6 +143,14 @@ function OrderDrawer({ orderId, onClose }: { orderId: string; onClose: () => voi
               </span>
             </div>
 
+            {/* Cancelled info */}
+            {order.status === "cancelled" && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3.5 flex items-center gap-2 text-xs font-bold text-red-700">
+                <X className="h-4 w-4 text-red-600 shrink-0" />
+                <span>{getCancelledByText(order)}</span>
+              </div>
+            )}
+
             {/* Customer */}
             <div className="rounded-xl border border-gray-100 p-4">
               <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Customer</p>
@@ -123,24 +158,55 @@ function OrderDrawer({ orderId, onClose }: { orderId: string; onClose: () => voi
               {order.userId?.email && <p className="text-xs text-gray-500 mt-0.5">{order.userId.email}</p>}
             </div>
 
-            {/* Items — each in its own row */}
+            {/* Items — each item with individual status selector */}
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Items</p>
-              <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Items ({order.items.length})</p>
+              <div className="space-y-2.5">
                 {order.items.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-50">
-                      {item.image
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-                        : <div className="flex h-full w-full items-center justify-center"><Package className="h-4 w-4 text-gray-300" /></div>
-                      }
+                  <div key={i} className="flex flex-col gap-2 rounded-xl border border-gray-100 p-3 bg-gray-50/40">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                        {item.image
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                          : <div className="flex h-full w-full items-center justify-center"><Package className="h-4 w-4 text-gray-300" /></div>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 line-clamp-1">{item.name}</p>
+                        {item.variant?.size && (
+                          <p className="text-xs text-gray-600 mt-0.5 font-medium flex items-center gap-1">
+                            <span>{/^\d+\s*(ml|L|g|kg)$/i.test(item.variant.size) ? "Pack Size" : "Size"}:</span>
+                            <span className="font-semibold text-[#1a5c14] bg-[#1a5c14]/10 border border-[#1a5c14]/20 px-1.5 py-0.5 rounded text-[11px]">
+                              {item.variant.size}
+                            </span>
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-0.5">Qty: {item.quantity} · {fmtPrice(item.price)} each</p>
+                      </div>
+                      <p className="text-sm font-bold text-gray-900 shrink-0">{fmtPrice(item.price * item.quantity)}</p>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 line-clamp-1">{item.name}</p>
-                      <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+
+                    {/* Individual Item Status Control */}
+                    <div className="flex items-center justify-between border-t border-gray-200/60 pt-2 text-xs">
+                      <span className="text-gray-400 font-semibold">Item Status:</span>
+                      <select
+                        value={item.status || order.status}
+                        onChange={(e) => {
+                          const newStatus = e.target.value;
+                          onItemStatusChange(order._id, item._id, newStatus);
+                          setOrder((prev) => prev ? {
+                            ...prev,
+                            items: prev.items.map((it) => it._id === item._id ? { ...it, status: newStatus } : it)
+                          } : null);
+                        }}
+                        className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-gray-800 focus:border-[#1a5c14] focus:outline-none cursor-pointer"
+                      >
+                        {Object.values(ORDER_STATUS).map((s) => (
+                          <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                        ))}
+                      </select>
                     </div>
-                    <p className="text-sm font-bold text-gray-900 shrink-0">{fmtPrice(item.price * item.quantity)}</p>
                   </div>
                 ))}
               </div>
@@ -273,6 +339,17 @@ export default function AdminOrdersPage() {
     load();
   }
 
+  async function updateItemStatus(orderId: string, itemId: string, itemStatus: string) {
+    setUpdating(orderId);
+    await fetch(`/api/admin/orders/${orderId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId, itemStatus }),
+    });
+    setUpdating(null);
+    load();
+  }
+
   async function markAsPaid(id: string) {
     if (!confirm("Mark this order as Paid?")) return;
     setMarkingPaid(id);
@@ -343,9 +420,14 @@ export default function AdminOrdersPage() {
                     <p className="font-bold text-gray-900 text-sm">#{o.orderNumber}</p>
                     <p className="text-xs text-gray-400">{fmt(o.createdAt)}</p>
                   </div>
-                  <span className={cn("rounded px-2 py-0.5 text-[11px] font-bold uppercase", STATUS_COLOR[o.status] ?? "bg-gray-100 text-gray-600")}>
+                  <span className={cn("rounded px-2 py-0.5 text-[11px] font-bold uppercase border", STATUS_COLOR[o.status] ?? "bg-gray-100 text-gray-600 border-gray-200")}>
                     {o.status}
                   </span>
+                  {o.status === "cancelled" && (
+                    <span className="rounded bg-red-100 border border-red-200 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                      {getCancelledByText(o)}
+                    </span>
+                  )}
                   <div className="flex flex-col gap-0.5">
                     {o.paymentMethod === "razorpay" ? (
                       <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold bg-blue-100 text-blue-700">
@@ -370,66 +452,100 @@ export default function AdminOrdersPage() {
                 </div>
               </div>
 
-              {/* Items — one row each */}
-              <div className="divide-y divide-gray-50">
+              {/* Items — each item with individual status badge & selector */}
+              <div className="divide-y divide-gray-100">
                 {(o.items ?? []).map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 px-4 py-3">
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                      {item.image
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
-                        : <div className="flex h-full w-full items-center justify-center"><ShoppingBag className="h-3.5 w-3.5 text-gray-300" /></div>
-                      }
+                  <div key={idx} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50/40 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                        {item.image
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                          : <div className="flex h-full w-full items-center justify-center"><ShoppingBag className="h-3.5 w-3.5 text-gray-300" /></div>
+                        }
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900 line-clamp-1">{item.name}</p>
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400 mt-0.5">
+                          <span>Qty: {item.quantity} · {fmtPrice(item.price)} each</span>
+                          {item.variant?.size && (
+                            <span className="font-semibold text-[#1a5c14] bg-[#1a5c14]/10 border border-[#1a5c14]/20 px-1.5 py-0.5 rounded text-[11px]">
+                              {/^\d+\s*(ml|L|g|kg)$/i.test(item.variant.size) ? "Pack" : "Size"}: {item.variant.size}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 line-clamp-1">{item.name}</p>
-                      <p className="text-xs text-gray-400">Qty: {item.quantity} · {fmtPrice(item.price)} each</p>
+
+                    {/* Individual Item Status Select & Price */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-gray-400 uppercase font-bold hidden sm:inline">Status:</span>
+                        <select
+                          value={item.status || o.status}
+                          disabled={updatingId === o._id}
+                          onChange={(e) => updateItemStatus(o._id, item._id, e.target.value)}
+                          className={cn(
+                            "rounded-lg border px-2 py-1 text-[11px] font-bold capitalize focus:border-[#1a5c14] focus:outline-none cursor-pointer border-gray-200 bg-white text-gray-800",
+                            STATUS_COLOR[item.status || o.status]
+                          )}
+                        >
+                          {Object.values(ORDER_STATUS).map((s) => (
+                            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">{fmtPrice(item.price * item.quantity)}</span>
                     </div>
-                    <p className="text-sm font-bold text-gray-900 shrink-0">{fmtPrice(item.price * item.quantity)}</p>
                   </div>
                 ))}
               </div>
 
               {/* Actions footer */}
-              <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50/40">
-                {/* View button */}
-                <button
-                  onClick={() => setDrawerOrderId(o._id)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <Eye className="h-3.5 w-3.5" /> View
-                </button>
-
-                {/* Update status */}
-                <select
-                  defaultValue={o.status}
-                  disabled={updatingId === o._id}
-                  onChange={(e) => updateStatus(o._id, e.target.value)}
-                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 focus:border-[#1a5c14] focus:outline-none disabled:opacity-50"
-                >
-                  {Object.values(ORDER_STATUS).map((s) => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                  ))}
-                </select>
-
-                {/* Cash received (COD only) */}
-                {o.paymentStatus !== "paid" && o.paymentMethod === "cod" && (
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50/40">
+                <div className="flex items-center gap-2">
+                  {/* View button */}
                   <button
-                    onClick={() => markAsPaid(o._id)}
-                    disabled={markingPaid === o._id}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    onClick={() => setDrawerOrderId(o._id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    <BadgeCheck className="h-3.5 w-3.5" />
-                    {markingPaid === o._id ? "Saving…" : "Cash Received"}
+                    <Eye className="h-3.5 w-3.5" /> View
                   </button>
-                )}
 
-                {/* Paid indicator */}
-                {o.paymentStatus === "paid" && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600">
-                    <Check className="h-3.5 w-3.5" /> Paid
-                  </span>
-                )}
+                  {/* Cash received (COD only) */}
+                  {o.paymentStatus !== "paid" && o.paymentMethod === "cod" && (
+                    <button
+                      onClick={() => markAsPaid(o._id)}
+                      disabled={markingPaid === o._id}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      <BadgeCheck className="h-3.5 w-3.5" />
+                      {markingPaid === o._id ? "Saving…" : "Cash Received"}
+                    </button>
+                  )}
+
+                  {/* Paid indicator */}
+                  {o.paymentStatus === "paid" && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600">
+                      <Check className="h-3.5 w-3.5" /> Paid
+                    </span>
+                  )}
+                </div>
+
+                {/* Bulk Update All Items Status */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-gray-400">All Items:</span>
+                  <select
+                    defaultValue={o.status}
+                    disabled={updatingId === o._id}
+                    onChange={(e) => updateStatus(o._id, e.target.value)}
+                    className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 focus:border-[#1a5c14] focus:outline-none disabled:opacity-50"
+                  >
+                    {Object.values(ORDER_STATUS).map((s) => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           ))
@@ -455,7 +571,11 @@ export default function AdminOrdersPage() {
 
       {/* Detail drawer */}
       {drawerOrderId && (
-        <OrderDrawer orderId={drawerOrderId} onClose={() => setDrawerOrderId(null)} />
+        <OrderDrawer
+          orderId={drawerOrderId}
+          onClose={() => setDrawerOrderId(null)}
+          onItemStatusChange={updateItemStatus}
+        />
       )}
     </div>
   );

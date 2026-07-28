@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
   Plus, Pencil, Trash2, X, Upload, Loader2,
-  Eye, EyeOff, Star, ImageIcon, Layers,
+  Eye, EyeOff, Star, ImageIcon, Layers, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -116,14 +116,17 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative h-6 w-11 rounded-full transition-colors shrink-0",
+        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
         checked ? "bg-[#1a5c14]" : "bg-gray-200"
       )}
     >
-      <span className={cn(
-        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-        checked ? "translate-x-5" : "translate-x-0.5"
-      )} />
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out",
+          checked ? "translate-x-5" : "translate-x-0"
+        )}
+      />
     </button>
   );
 }
@@ -217,8 +220,28 @@ function ImageUploader({
 // Page
 // ---------------------------------------------------------------------------
 
+interface DbCategory {
+  _id: string;
+  name: string;
+  slug: string;
+}
+
+interface DbProductItem {
+  id?: string;
+  _id?: string;
+  name: string;
+  slug?: string;
+  basePrice?: number;
+  price?: number;
+  images?: string[];
+  image?: string;
+}
+
 export default function AdminCollectionsPage() {
   const [collections, setCollections] = useState<CollectionData[]>([]);
+  const [categoriesList, setCategoriesList] = useState<DbCategory[]>([]);
+  const [productsList, setProductsList] = useState<DbProductItem[]>([]);
+  const [prodSearch, setProdSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -242,7 +265,24 @@ export default function AdminCollectionsPage() {
     }
   }, []);
 
-  useEffect(() => { fetchCollections(); }, [fetchCollections]);
+  useEffect(() => {
+    fetchCollections();
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data) setCategoriesList(res.data);
+      })
+      .catch(() => {});
+
+    fetch("/api/products?limit=200")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data?.products) {
+          setProductsList(res.data.products);
+        }
+      })
+      .catch(() => {});
+  }, [fetchCollections]);
 
   function openCreate() {
     setEditingId(null);
@@ -372,93 +412,181 @@ export default function AdminCollectionsPage() {
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {collections.map((c, idx) => (
-            <div
-              key={c._id}
-              className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:p-4 shadow-sm"
-            >
-              <span className="text-xs font-bold text-gray-300 shrink-0 w-4 text-center">{idx + 1}</span>
+        <div>
+          {/* Mobile View (<640px) */}
+          <div className="sm:hidden space-y-3">
+            {collections.map((c) => (
+              <div key={c._id} className="rounded-2xl border border-gray-200 bg-white p-3.5 space-y-3 shadow-sm">
+                {/* Top Row: Thumbnail + Title + Badge + Active Toggle */}
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="h-14 w-18 shrink-0 overflow-hidden rounded-xl bg-gray-100 border border-gray-100">
+                      {c.thumbnail ? (
+                        <Image src={c.thumbnail} alt={c.name} width={72} height={56} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-gray-300" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-1">{c.name}</p>
+                        {c.badge && (
+                          <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700 whitespace-nowrap">
+                            {c.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">{typeLabel[c.type]}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleToggle(c._id, "isActive", c.isActive)}
+                    className={cn(
+                      "shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                      c.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                    )}
+                  >
+                    {c.isActive ? "Active" : "Inactive"}
+                  </button>
+                </div>
 
-              {/* Thumbnail */}
-              <div className="h-12 w-16 sm:h-14 sm:w-20 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                {c.thumbnail ? (
-                  <Image src={c.thumbnail} alt={c.name} width={80} height={56}
-                    className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <ImageIcon className="h-4 w-4 text-gray-300" />
+                {/* Middle Row: Short Description */}
+                {c.shortDescription && (
+                  <div className="rounded-xl bg-gray-50/80 border border-gray-100 px-3 py-2 text-xs">
+                    <p className="text-xs text-gray-600 line-clamp-2">{c.shortDescription}</p>
                   </div>
                 )}
-              </div>
 
-              {/* Info */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-black text-gray-900 truncate">{c.name}</p>
-                  {c.badge && <span className="text-xs text-gray-500">{c.badge}</span>}
-                </div>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="text-[11px] text-gray-400">{typeLabel[c.type]}</span>
-                  <span className="text-[11px] text-gray-300">·</span>
-                  <span className="text-[11px] text-gray-400 font-mono">/collections/{c.slug}</span>
+                {/* Bottom Row: Featured Toggle + Edit & Delete Actions */}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                  <button
+                    onClick={() => handleToggle(c._id, "isFeatured", c.isFeatured)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors whitespace-nowrap",
+                      c.isFeatured ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    )}
+                  >
+                    <Star className={cn("h-3.5 w-3.5 shrink-0", c.isFeatured && "fill-amber-500")} />
+                    <span>{c.isFeatured ? "Featured" : "Mark Featured"}</span>
+                  </button>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => openEdit(c)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(c._id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
+            ))}
+          </div>
 
-              {/* Featured star */}
-              <button
-                onClick={() => handleToggle(c._id, "isFeatured", c.isFeatured)}
-                title={c.isFeatured ? "Remove from Featured" : "Mark as Featured"}
-                className={cn(
-                  "hidden sm:flex shrink-0 rounded-lg p-1.5 transition-colors",
-                  c.isFeatured ? "text-amber-400 hover:text-amber-500" : "text-gray-300 hover:text-amber-300"
-                )}
+          {/* Desktop View (>=640px) */}
+          <div className="hidden sm:block space-y-3">
+            {collections.map((c, idx) => (
+              <div
+                key={c._id}
+                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
               >
-                <Star className="h-4 w-4" fill={c.isFeatured ? "currentColor" : "none"} />
-              </button>
+                <span className="text-xs font-bold text-gray-300 shrink-0 w-4 text-center">{idx + 1}</span>
 
-              {/* Active badge */}
-              <span className={cn(
-                "hidden sm:inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
-                c.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
-              )}>
-                {c.isActive ? "Active" : "Inactive"}
-              </span>
+                {/* Thumbnail */}
+                <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                  {c.thumbnail ? (
+                    <Image src={c.thumbnail} alt={c.name} width={80} height={56} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-gray-300" />
+                    </div>
+                  )}
+                </div>
 
-              {/* Actions */}
-              <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+                {/* Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-black text-gray-900 truncate">{c.name}</p>
+                    {c.badge && <span className="text-xs text-gray-500">{c.badge}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="text-[11px] text-gray-400">{typeLabel[c.type]}</span>
+                    {c.shortDescription && (
+                      <>
+                        <span className="text-[11px] text-gray-300">·</span>
+                        <span className="text-[11px] text-gray-500 truncate max-w-xs">{c.shortDescription}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Featured star */}
                 <button
-                  onClick={() => handleToggle(c._id, "isActive", c.isActive)}
-                  title={c.isActive ? "Deactivate" : "Activate"}
-                  className="rounded-lg p-1.5 sm:p-2 text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                  onClick={() => handleToggle(c._id, "isFeatured", c.isFeatured)}
+                  title={c.isFeatured ? "Remove from Featured" : "Mark as Featured"}
+                  className={cn(
+                    "shrink-0 rounded-lg p-1.5 transition-colors",
+                    c.isFeatured ? "text-amber-400 hover:text-amber-500" : "text-gray-300 hover:text-amber-300"
+                  )}
                 >
-                  {c.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  <Star className="h-4 w-4" fill={c.isFeatured ? "currentColor" : "none"} />
                 </button>
-                <button
-                  onClick={() => openEdit(c)}
-                  className="rounded-lg p-1.5 sm:p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+
+                {/* Active badge */}
+                <span
+                  className={cn(
+                    "inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
+                    c.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
+                  )}
                 >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setDeleteId(c._id)}
-                  className="rounded-lg p-1.5 sm:p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  {c.isActive ? "Active" : "Inactive"}
+                </span>
+
+                {/* Actions */}
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => handleToggle(c._id, "isActive", c.isActive)}
+                    title={c.isActive ? "Deactivate" : "Activate"}
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                  >
+                    {c.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={() => openEdit(c)}
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteId(c._id)}
+                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
       {/* Create / Edit Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setModalOpen(false)} />
-          <div className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 shrink-0">
-              <h2 className="text-lg font-black text-gray-900">
+          <div className="relative flex max-h-[85vh] sm:max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-3.5 sm:px-6 py-3 sm:py-4 shrink-0">
+              <h2 className="text-base sm:text-lg font-black text-gray-900">
                 {editingId ? "Edit Collection" : "New Collection"}
               </h2>
               <button onClick={() => setModalOpen(false)}
@@ -467,7 +595,7 @@ export default function AdminCollectionsPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div className="flex-1 overflow-y-auto px-3.5 sm:px-6 py-3.5 sm:py-5 space-y-3.5 sm:space-y-5">
               {/* Name */}
               <Field label="Collection Name *">
                 <TextInput value={form.name} onChange={(v) => patch({ name: v })} placeholder="e.g. Cotton Collection" />
@@ -569,11 +697,11 @@ export default function AdminCollectionsPage() {
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
-                        placeholder="Type a tag and press Enter"
-                        className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#1a5c14] focus:ring-1 focus:ring-[#1a5c14]"
+                        placeholder="Type tag & press Enter"
+                        className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm outline-none focus:border-[#1a5c14] focus:ring-1 focus:ring-[#1a5c14]"
                       />
                       <button type="button" onClick={addTag}
-                        className="rounded-lg bg-[#1a5c14] px-3 py-2 text-sm font-semibold text-white hover:bg-[#103a0c]">
+                        className="shrink-0 rounded-lg bg-[#1a5c14] px-3.5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#103a0c] transition-colors">
                         Add
                       </button>
                     </div>
@@ -593,32 +721,111 @@ export default function AdminCollectionsPage() {
                 )}
 
                 {form.productAssignment === "auto-category" && (
-                  <div className="mt-3">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Category Slug</p>
-                    <TextInput value={form.autoCategorySlug}
-                      onChange={(v) => patch({ autoCategorySlug: v.toLowerCase().trim() })}
-                      placeholder="e.g. ethnic-wear or ayurvedic-products" />
-                    <p className="mt-1 text-[11px] text-gray-400">Use the exact slug from the Categories admin page</p>
+                  <div className="mt-3 space-y-1.5 min-w-0">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Select Category *</p>
+                    <select
+                      value={form.autoCategorySlug}
+                      onChange={(e) => patch({ autoCategorySlug: e.target.value })}
+                      className="w-full max-w-full truncate rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs sm:text-sm font-semibold outline-none focus:border-[#1a5c14] focus:ring-1 focus:ring-[#1a5c14]"
+                    >
+                      <option value="">-- Choose a Category from DB --</option>
+                      {categoriesList.map((cat) => (
+                        <option key={cat.slug} value={cat.slug} className="truncate">
+                          {cat.name} ({cat.slug})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-gray-400">All products in this category will automatically be included in this collection.</p>
                   </div>
                 )}
 
                 {form.productAssignment === "manual" && (
-                  <div className="mt-3">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Product IDs</p>
-                    <textarea
-                      value={form.manualProductIds.join("\n")}
-                      onChange={(e) => patch({ manualProductIds: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
-                      rows={4}
-                      placeholder={"683abc...\n683def..."}
-                      className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-mono outline-none focus:border-[#1a5c14] focus:ring-1 focus:ring-[#1a5c14]"
-                    />
-                    <p className="mt-1 text-[11px] text-gray-400">One product ID per line (copy from Products admin page)</p>
+                  <div className="mt-3 space-y-2.5 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide truncate">
+                        Select Products ({form.manualProductIds.length} marked)
+                      </p>
+                      {form.manualProductIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => patch({ manualProductIds: [] })}
+                          className="text-xs font-semibold text-red-600 hover:underline shrink-0 ml-2"
+                        >
+                          Clear Selection
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Search inside manual selector */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={prodSearch}
+                        onChange={(e) => setProdSearch(e.target.value)}
+                        placeholder="Search products to include…"
+                        className="w-full rounded-lg border border-gray-200 bg-white pl-8 pr-3 py-2 text-xs outline-none focus:border-[#1a5c14] focus:ring-1 focus:ring-[#1a5c14]"
+                      />
+                    </div>
+
+                    {/* Checkbox list */}
+                    <div className="max-h-56 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100 bg-white p-1">
+                      {productsList.filter((p) => p.name.toLowerCase().includes(prodSearch.toLowerCase())).length === 0 ? (
+                        <div className="p-4 text-center text-xs text-gray-400">No products found</div>
+                      ) : (
+                        productsList
+                          .filter((p) => p.name.toLowerCase().includes(prodSearch.toLowerCase()))
+                          .map((p) => {
+                            const pid = p._id || p.id || "";
+                            const isSelected = form.manualProductIds.includes(pid);
+                            const img = p.images?.[0] || p.image;
+                            const price = p.basePrice ?? p.price ?? 0;
+                            return (
+                              <label
+                                key={pid}
+                                className={cn(
+                                  "flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors select-none",
+                                  isSelected ? "bg-[#1a5c14]/10" : "hover:bg-gray-50"
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    if (isSelected) {
+                                      patch({ manualProductIds: form.manualProductIds.filter((id) => id !== pid) });
+                                    } else {
+                                      patch({ manualProductIds: [...form.manualProductIds, pid] });
+                                    }
+                                  }}
+                                  className="h-4 w-4 rounded accent-[#1a5c14] shrink-0"
+                                />
+                                {img ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={img} alt={p.name} className="h-9 w-9 shrink-0 rounded-lg object-cover border border-gray-100 bg-gray-50" />
+                                ) : (
+                                  <div className="h-9 w-9 shrink-0 rounded-lg border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] text-gray-300 shrink-0">N/A</div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-gray-900 truncate">{p.name}</p>
+                                  <p className="text-[11px] font-semibold text-[#1a5c14]">₹{price.toLocaleString("en-IN")}</p>
+                                </div>
+                                {isSelected && (
+                                  <span className="shrink-0 rounded-full bg-[#1a5c14] px-2 py-0.5 text-[10px] font-bold text-white">
+                                    Marked
+                                  </span>
+                                )}
+                              </label>
+                            );
+                          })
+                      )}
+                    </div>
                   </div>
                 )}
               </Field>
 
               {/* Display options */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Display Order" hint="Lower number = shown first">
                   <input type="number" value={form.displayOrder} min={0}
                     onChange={(e) => patch({ displayOrder: parseInt(e.target.value) || 0 })}
@@ -627,29 +834,32 @@ export default function AdminCollectionsPage() {
                 </Field>
               </div>
 
-              <div className="flex gap-8">
-                <div className="flex items-center gap-3">
-                  <Toggle checked={form.isActive} onChange={(v) => patch({ isActive: v })} />
-                  <span className="text-sm font-medium text-gray-700">Active</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Toggle checked={form.isFeatured} onChange={(v) => patch({ isFeatured: v })} />
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">Featured</span>
-                    <p className="text-[11px] text-gray-400">Shows in the Featured section on the Collections page</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 p-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-bold text-gray-900 block leading-tight">Active</span>
+                    <p className="text-[11px] text-gray-400 mt-0.5 leading-tight truncate">Visible to customers</p>
                   </div>
+                  <Toggle checked={form.isActive} onChange={(v) => patch({ isActive: v })} />
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 p-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-bold text-gray-900 block leading-tight">Featured</span>
+                    <p className="text-[11px] text-gray-400 mt-0.5 leading-tight truncate">Shows in Featured section</p>
+                  </div>
+                  <Toggle checked={form.isFeatured} onChange={(v) => patch({ isFeatured: v })} />
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4 shrink-0">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 border-t border-gray-100 px-3.5 sm:px-6 py-3 sm:py-4 shrink-0 bg-gray-50/30">
               <button onClick={() => setModalOpen(false)}
-                className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                className="w-full sm:w-auto rounded-xl border border-gray-200 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
               <button onClick={handleSave} disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-[#1a5c14] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#103a0c] disabled:opacity-60">
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[#1a5c14] px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#103a0c] transition-colors disabled:opacity-60">
+                {saving && <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />}
                 {editingId ? "Save Changes" : "Create Collection"}
               </button>
             </div>

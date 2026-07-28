@@ -5,6 +5,8 @@ import { Order, IOrderDocument } from "@/models/order.model";
 import { Payment } from "@/models/payment.model";
 import { Product } from "@/models/product.model";
 import { User } from "@/models/user.model";
+import { Coupon } from "@/models/coupon.model";
+import { StoreSettings } from "@/models/store-settings.model";
 import { getServerSession } from "@/lib/auth/session";
 import { PAYMENT_STATUS, PAYMENT_METHODS, ORDER_STATUS } from "@/constants";
 import { sendEmail } from "@/lib/email/mailer";
@@ -56,36 +58,110 @@ export async function POST(req: NextRequest) {
   // ── Server-side price & stock validation ────────────────────────────────────
   const productIds = (items as Array<{ productId: string; quantity: number }>).map((i) => i.productId);
   const dbProducts = await Product.find({ _id: { $in: productIds }, isActive: true, deletedAt: null })
-    .select("_id basePrice stock")
-    .lean<Array<{ _id: unknown; basePrice: number; stock: number }>>();
+    .select("_id basePrice stock variants")
+    .lean<Array<{
+      _id: unknown;
+      basePrice: number;
+      stock: number;
+      variants?: Array<{ size?: string; price?: number; stock?: number }>;
+    }>>();
 
-  const priceMap = new Map(dbProducts.map((p) => [String(p._id), p.basePrice]));
-  const stockMap = new Map(dbProducts.map((p) => [String(p._id), p.stock]));
+  const dbProductMap = new Map(dbProducts.map((p) => [String(p._id), p]));
 
   const validatedItems: Array<{
     productId: string; name: string; image: string; slug: string;
     price: number; compareAtPrice?: number; quantity: number;
+    variant?: { size?: string };
+    status: string;
   }> = [];
 
   for (const item of items as Array<{
     productId: string; name: string; image: string; slug: string;
     price: number; compareAtPrice?: number; quantity: number;
+    selectedSize?: string; variant?: { size?: string };
   }>) {
-    const dbPrice = priceMap.get(item.productId);
-    if (dbPrice === undefined)
+    const dbProduct = dbProductMap.get(item.productId);
+    if (!dbProduct)
       return NextResponse.json({ error: `Product not found: ${item.productId}` }, { status: 400 });
-    const available = stockMap.get(item.productId) ?? 0;
-    if (available < item.quantity)
+
+    const size = item.selectedSize || item.variant?.size;
+    const matchedVariant = dbProduct.variants?.find(
+      (v) => String(v.size ?? "").trim() === String(size ?? "").trim()
+    );
+    const itemPrice = matchedVariant?.price != null && matchedVariant.price > 0 ? matchedVariant.price : dbProduct.basePrice;
+    const itemStock = matchedVariant?.stock != null ? matchedVariant.stock : dbProduct.stock;
+
+    if (itemStock < item.quantity)
       return NextResponse.json({ error: `"${item.name}" is out of stock.` }, { status: 400 });
-    validatedItems.push({ ...item, price: dbPrice });
+
+    validatedItems.push({
+      ...item,
+      price: itemPrice,
+      ...(size ? { variant: { size } } : {}),
+      status: ORDER_STATUS.CONFIRMED,
+    });
   }
 
-  const validatedSubtotal = validatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
-  const validatedShipping = shippingFee ?? 0;
-  const validatedDiscount = couponDiscount ?? 0;
-  const validatedTotal    = validatedSubtotal + validatedShipping - validatedDiscount;
+  const storeSettings = await StoreSettings.findOne().lean();
+  const freeAboveThreshold = storeSettings?.shipping?.freeAbove ?? 999;
+  const configuredStandardFee = storeSettings?.shipping?.standardFee ?? 99;
 
-  const orderNumber = generateOrderNumber();
+  const validatedSubtotal = validatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const validatedShipping = validatedSubtotal >= freeAboveThreshold ? 0 : configuredStandardFee;
+  let validatedDiscount = 0;
+  let verifiedCouponCode: string | undefined = undefined;
+
+  if (couponCode) {
+    const codeStr = String(couponCode).toUpperCase().trim();
+    const coupon = await Coupon.findOne({
+      code: codeStr,
+      isActive: true,
+      deletedAt: null,
+      startDate: { $lte: new Date() },
+      endDate:   { $gte: new Date() },
+    });
+
+    if (!coupon) {
+      return NextResponse.json({ error: "Invalid or expired coupon code." }, { status: 400 });
+    }
+    if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) {
+      return NextResponse.json({ error: "This coupon has reached its total usage limit." }, { status: 400 });
+    }
+
+    if (coupon.userLimit != null) {
+      const userLimit = coupon.userLimit;
+      const currentUserId = session.user._id;
+      const userUsageInOrders = await Order.countDocuments({
+        userId: currentUserId,
+        couponCode: coupon.code,
+        status: { $ne: "cancelled" },
+      });
+      const userUsageInArray = (coupon.usedBy ?? []).filter((id) => String(id) === String(currentUserId)).length;
+      const totalUserUsage = Math.max(userUsageInOrders, userUsageInArray);
+
+      if (totalUserUsage >= userLimit) {
+        return NextResponse.json({ error: "You have already reached the usage limit for this coupon code." }, { status: 400 });
+      }
+    }
+
+    if (coupon.minOrderAmount && validatedSubtotal < coupon.minOrderAmount) {
+      return NextResponse.json({ error: `Minimum order of ₹${coupon.minOrderAmount} required for coupon ${coupon.code}.` }, { status: 400 });
+    }
+
+    if (coupon.type === "percentage") {
+      validatedDiscount = Math.round((validatedSubtotal * coupon.value) / 100);
+      if (coupon.maxDiscountAmount) validatedDiscount = Math.min(validatedDiscount, coupon.maxDiscountAmount);
+    } else if (coupon.type === "flat") {
+      validatedDiscount = Math.min(coupon.value, validatedSubtotal);
+    } else if (coupon.type === "free_shipping") {
+      validatedDiscount = 99;
+    }
+
+    verifiedCouponCode = coupon.code;
+  }
+
+  const validatedTotal = Math.max(0, validatedSubtotal + validatedShipping - validatedDiscount);
+  const orderNumber    = generateOrderNumber();
 
   // ── COD ────────────────────────────────────────────────────────────────────
   if (paymentMethod === "cod") {
@@ -98,7 +174,7 @@ export async function POST(req: NextRequest) {
       paymentStatus:  PAYMENT_STATUS.PENDING,
       status:         ORDER_STATUS.CONFIRMED,
       subtotal:       validatedSubtotal,
-      couponCode:     couponCode ?? undefined,
+      couponCode:     verifiedCouponCode,
       couponDiscount: validatedDiscount,
       discount:       validatedDiscount,
       shippingFee:    validatedShipping,
@@ -107,6 +183,13 @@ export async function POST(req: NextRequest) {
       timeline: [{ status: ORDER_STATUS.CONFIRMED, timestamp: new Date(), message: "Order placed via Cash on Delivery." }],
       estimatedDelivery: new Date(Date.now() + 5 * 86400000),
     });
+
+    if (verifiedCouponCode) {
+      await Coupon.updateOne(
+        { code: verifiedCouponCode },
+        { $inc: { usageCount: 1 }, $push: { usedBy: session.user._id } }
+      ).catch((e) => console.error("[Coupon usage update failed]", e));
+    }
 
     // Create a payment record for COD orders too (for completeness)
     await Payment.create({
@@ -130,8 +213,8 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // Send confirmation email for COD orders
-    sendOrderEmail(order, session.user!.email).catch((e) => console.error("[Order email] COD failed:", e));
+    // Send notification emails (to Customer and Admin)
+    sendOrderNotifications(order, session.user!.email).catch((e) => console.error("[Order notification emails] COD failed:", e));
 
     return NextResponse.json({ success: true, orderNumber: order.orderNumber, orderId: String(order._id) }, { status: 201 });
   }
@@ -147,7 +230,7 @@ export async function POST(req: NextRequest) {
       paymentStatus:  PAYMENT_STATUS.PENDING,
       status:         ORDER_STATUS.PENDING,
       subtotal:       validatedSubtotal,
-      couponCode:     couponCode ?? undefined,
+      couponCode:     verifiedCouponCode,
       couponDiscount: validatedDiscount,
       discount:       validatedDiscount,
       shippingFee:    validatedShipping,
@@ -299,15 +382,22 @@ export async function PUT(req: NextRequest) {
 
     if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
-    // Decrement stock
-    await Promise.all(
-      (order.items as unknown as Array<{ productId: unknown; quantity: number }>).map((item) =>
+    // Decrement stock & increment coupon usage
+    await Promise.all([
+      ...(order.items as unknown as Array<{ productId: unknown; quantity: number }>).map((item) =>
         Product.findByIdAndUpdate(item.productId, { $inc: { stock: -item.quantity } })
           .catch((e: unknown) => console.error("[Stock] decrement failed for", item.productId, e))
-      )
-    );
+      ),
+      order.couponCode
+        ? Coupon.updateOne(
+            { code: order.couponCode },
+            { $inc: { usageCount: 1 }, $push: { usedBy: session.user!._id } }
+          ).catch((e) => console.error("[Coupon usage update failed]", e))
+        : Promise.resolve(),
+    ]);
 
-    sendOrderEmail(order, session.user!.email).catch((e) => console.error("[Order email] failed:", e));
+    // Send notification emails (to Customer and Admin)
+    sendOrderNotifications(order, session.user!.email).catch((e) => console.error("[Order notification emails] failed:", e));
 
     return NextResponse.json({ success: true, orderNumber: order.orderNumber, status: "confirmed" });
   }
@@ -341,9 +431,30 @@ export async function PUT(req: NextRequest) {
   });
 }
 
-// ── Helper: send order confirmation email ───────────────────────────────────
+async function sendOrderNotifications(order: IOrderDocument | null, customerEmail: string) {
+  if (!order) return;
 
-async function sendOrderEmail(order: IOrderDocument | null, toEmail: string) {
+  // 1. Send confirmation email to Customer
+  if (customerEmail) {
+    sendOrderEmail(order, customerEmail, false).catch((e) => console.error("[Customer Order Email] failed:", e));
+  }
+
+  // 2. Send new order notification email to Admin
+  try {
+    const adminUsers = await User.find({ role: "admin", isActive: true }).select("email").lean();
+    const adminEmails = adminUsers.map((u) => u.email).filter(Boolean);
+    const fallbackAdmin = process.env.ADMIN_EMAIL ?? "admin@sunera.in";
+    const targetAdmins = Array.from(new Set([...adminEmails, fallbackAdmin]));
+
+    for (const adminEmail of targetAdmins) {
+      sendOrderEmail(order, adminEmail, true).catch((e) => console.error("[Admin Order Email] failed:", e));
+    }
+  } catch (e) {
+    console.error("[Admin Order Email lookup failed]", e);
+  }
+}
+
+async function sendOrderEmail(order: IOrderDocument | null, toEmail: string, isForAdmin = false) {
   if (!order || !toEmail) return;
 
   let displayName = "Valued Customer";
@@ -360,9 +471,13 @@ async function sendOrderEmail(order: IOrderDocument | null, toEmail: string) {
 
   const orderDate = new Date(order.createdAt as Date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 
+  const subject = isForAdmin
+    ? `🚨 New Order Received – #${order.orderNumber} | SunEra Admin`
+    : `Order Confirmed – ${order.orderNumber} | SunEra Lifestyle`;
+
   await sendEmail({
     to:      toEmail,
-    subject: `Order Confirmed – ${order.orderNumber} | SunEra Lifestyle`,
+    subject,
     html:    orderConfirmationTemplate({
       name:              displayName,
       orderNumber:       order.orderNumber,
@@ -387,7 +502,7 @@ async function sendOrderEmail(order: IOrderDocument | null, toEmail: string) {
         pincode:      addr.pincode ?? "",
       },
       paymentMethod: order.paymentMethod,
-      trackUrl:      `${BASE_URL}/account/orders`,
+      trackUrl:      isForAdmin ? `${BASE_URL}/admin/orders` : `${BASE_URL}/account/orders`,
     }),
   });
 }

@@ -21,6 +21,7 @@ const STATUS_BADGE: Record<string, string> = {
   under_review:      "bg-blue-100 text-blue-700 border-blue-200",
   approved:          "bg-green-100 text-green-700 border-green-200",
   rejected:          "bg-red-100 text-red-700 border-red-200",
+  cancelled:         "bg-gray-100 text-gray-700 border-gray-200",
   refund_processing: "bg-purple-100 text-purple-700 border-purple-200",
   refund_completed:  "bg-emerald-100 text-emerald-700 border-emerald-200",
 };
@@ -30,6 +31,7 @@ const STATUS_LABEL: Record<string, string> = {
   under_review:      "Under Review",
   approved:          "Approved",
   rejected:          "Rejected",
+  cancelled:         "Cancelled",
   refund_processing: "Refund Processing",
   refund_completed:  "Refund Completed",
 };
@@ -62,7 +64,7 @@ export default function ReturnsContent() {
   }, []);
 
   return (
-    <div className="container-padded pt-32 pb-16">
+    <div className="container-padded pt-28 sm:pt-32 pb-16">
       <div className="max-w-3xl mx-auto">
         <Link href="/account"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
@@ -70,9 +72,7 @@ export default function ReturnsContent() {
         </Link>
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50">
-            <RotateCcw className="h-5 w-5 text-orange-500" />
-          </div>
+
           <div>
             <h1 className="text-2xl font-black text-foreground">My Returns</h1>
             {!loading && <p className="text-xs text-muted-foreground">{returns.length} return request{returns.length !== 1 ? "s" : ""}</p>}
@@ -103,28 +103,30 @@ export default function ReturnsContent() {
               <Link
                 key={r._id}
                 href={`/account/returns/${r._id}`}
-                className="flex items-center gap-4 rounded-2xl border border-border bg-background p-5 hover:shadow-sm transition-shadow"
+                className="block rounded-2xl border border-border bg-background p-4 sm:p-5 hover:shadow-sm transition-shadow"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="font-mono text-sm font-bold">{r.returnNumber}</span>
-                    <span className="text-muted-foreground text-xs">·</span>
-                    <span className="text-xs text-muted-foreground">Order {r.orderNumber}</span>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="font-mono text-sm font-bold text-foreground block truncate">{r.returnNumber}</span>
+                    <span className="text-xs text-muted-foreground block mt-0.5 truncate">Order {r.orderNumber}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{REASON_LABEL[r.reason] ?? r.reason} · {fmtDate(r.createdAt)}</p>
-                  {r.refund?.amount && (
-                    <p className="text-xs text-[#1a5c14] font-semibold mt-1">
-                      Refund: ₹{r.refund.amount.toLocaleString("en-IN")}
-                      {r.refund.status ? ` · ${r.refund.status}` : ""}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                    <span className={cn("rounded-full border px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-tight whitespace-nowrap", STATUS_BADGE[r.status] ?? "bg-gray-100 text-gray-600 border-gray-200")}>
+                      {STATUS_LABEL[r.status] ?? r.status}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase", STATUS_BADGE[r.status] ?? "bg-gray-100 text-gray-600 border-gray-200")}>
-                    {STATUS_LABEL[r.status] ?? r.status}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <div className="border-t border-border/60 pt-2.5 mt-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground flex-wrap">
+                  <span className="truncate">{REASON_LABEL[r.reason] ?? r.reason}</span>
+                  <span className="shrink-0">{fmtDate(r.createdAt)}</span>
                 </div>
+                {r.refund?.amount && (
+                  <p className="text-xs text-[#1a5c14] font-semibold mt-1.5">
+                    Refund: ₹{r.refund.amount.toLocaleString("en-IN")}
+                    {r.refund.status ? ` · ${r.refund.status}` : ""}
+                  </p>
+                )}
               </Link>
             ))}
           </div>

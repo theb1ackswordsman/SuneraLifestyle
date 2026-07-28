@@ -132,63 +132,72 @@ export default function AdminProductsPage() {
           </div>
         ) : (
           products.map((p) => (
-            <div key={p._id} className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
+            <div key={p._id} className="rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-4 space-y-3 shadow-sm">
+              {/* Top Row: Image + Name + Category + Active status */}
+              <div className="flex items-start justify-between gap-2.5">
                 <div className="flex items-start gap-3 min-w-0 flex-1">
                   {p.images?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.images[0]} alt={p.name} className="h-12 w-12 shrink-0 rounded-xl object-cover border border-gray-100" />
+                    <img src={p.images[0]} alt={p.name} className="h-14 w-14 shrink-0 rounded-xl object-cover border border-gray-100 bg-gray-50" />
                   ) : (
-                    <div className="h-12 w-12 shrink-0 rounded-xl border border-dashed border-gray-200 bg-gray-50" />
+                    <div className="h-14 w-14 shrink-0 rounded-xl border border-dashed border-gray-200 bg-gray-50 flex items-center justify-center text-gray-300 text-xs font-semibold">N/A</div>
                   )}
-                  <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">{p.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{p.category?.name ?? "No category"}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{p.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">{p.category?.name ?? "Uncategorized"}</p>
                   </div>
                 </div>
-                <span className={cn("shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase", p.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+                <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide", p.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
                   {p.isActive ? "Active" : "Inactive"}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <div>
-                  <span className="font-bold text-gray-900">₹{p.basePrice?.toLocaleString("en-IN")}</span>
+
+              {/* Middle Row: Price & Stock bar */}
+              <div className="flex items-center justify-between rounded-xl bg-gray-50/80 border border-gray-100 px-3 py-2 text-xs">
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span className="font-extrabold text-gray-900 text-sm">₹{p.basePrice?.toLocaleString("en-IN")}</span>
                   {p.compareAtPrice && p.compareAtPrice > p.basePrice && (
-                    <span className="ml-2 text-xs text-gray-400 line-through">₹{p.compareAtPrice.toLocaleString("en-IN")}</span>
+                    <span className="text-[11px] text-gray-400 line-through">₹{p.compareAtPrice.toLocaleString("en-IN")}</span>
                   )}
                 </div>
-                <span className={cn("text-xs font-semibold", p.stock === 0 ? "text-red-600" : p.stock < 10 ? "text-yellow-600" : "text-gray-600")}>
+                <span className={cn("font-bold text-xs", p.stock === 0 ? "text-red-600" : p.stock < 10 ? "text-amber-600" : "text-gray-600")}>
                   Stock: {p.stock}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+
+              {/* Bottom Row: Featured / Best Seller Toggles & Edit/Delete Actions */}
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     onClick={() => handleToggle(p._id, "isFeatured", p.isFeatured)}
                     disabled={toggling === `${p._id}-isFeatured`}
-                    className={cn("flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors", p.isFeatured ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500")}
+                    title={p.isFeatured ? "Featured" : "Mark Featured"}
+                    className={cn("flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors whitespace-nowrap", p.isFeatured ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200")}
                   >
-                    <Star className={cn("h-3 w-3", p.isFeatured && "fill-amber-500")} />
-                    Featured
+                    <Star className={cn("h-3 w-3 shrink-0", p.isFeatured && "fill-amber-500")} />
+                    <span>Featured</span>
                   </button>
                   <button
                     onClick={() => handleToggle(p._id, "isBestSeller", p.isBestSeller)}
                     disabled={toggling === `${p._id}-isBestSeller`}
-                    className={cn("flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors", p.isBestSeller ? "bg-green-100 text-[#1a5c14]" : "bg-gray-100 text-gray-500")}
+                    title={p.isBestSeller ? "Best Seller" : "Mark Best Seller"}
+                    className={cn("flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors whitespace-nowrap", p.isBestSeller ? "bg-green-100 text-[#1a5c14] border border-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200")}
                   >
-                    <Trophy className={cn("h-3 w-3", p.isBestSeller && "fill-[#1a5c14]")} />
-                    Best Seller
+                    <Trophy className={cn("h-3 w-3 shrink-0", p.isBestSeller && "fill-[#1a5c14]")} />
+                    <span>Best Seller</span>
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Link href={`/admin/products/${p._id}/edit`}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-[#1a5c14] hover:border-[#1a5c14] hover:text-white transition-colors">
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-[#1a5c14] hover:border-[#1a5c14] hover:text-white transition-colors"
+                    title="Edit Product">
                     <Pencil className="h-3.5 w-3.5" />
                   </Link>
                   <button
                     onClick={() => handleDelete(p._id, p.name)}
                     disabled={deleting === p._id}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors disabled:opacity-50"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors disabled:opacity-50"
+                    title="Delete Product"
                   >
                     {deleting === p._id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   </button>

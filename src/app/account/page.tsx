@@ -1,9 +1,6 @@
 import Link from "next/link";
 import { ShopLayout } from "@/components/layout/shop-layout";
-import {
-  Package, Heart, MapPin, Settings, ShieldCheck,
-  MessageSquare, HeadphonesIcon, ChevronRight, User, RotateCcw,
-} from "lucide-react";
+import { ChevronRight, User } from "lucide-react";
 import { SignOutButton } from "./_sign-out-button";
 import { getServerSession } from "@/lib/auth/session";
 import { connectDB } from "@/lib/db/connection";
@@ -11,60 +8,44 @@ import { User as UserModel } from "@/models/user.model";
 
 const ACCOUNT_LINKS = [
   {
-    icon: Package,
     label: "My Orders",
     desc: "Track and manage your orders",
     href: "/account/orders",
-    color: "bg-amber-50 text-amber-600",
   },
   {
-    icon: RotateCcw,
     label: "My Returns",
     desc: "Track return & refund requests",
     href: "/account/returns",
-    color: "bg-orange-50 text-orange-500",
   },
   {
-    icon: Heart,
     label: "Wishlist",
     desc: "Items you've saved for later",
     href: "/account/wishlist",
-    color: "bg-rose-50 text-rose-500",
   },
   {
-    icon: MapPin,
     label: "Addresses",
     desc: "Manage delivery addresses",
     href: "/account/addresses",
-    color: "bg-blue-50 text-blue-600",
   },
   {
-    icon: MessageSquare,
     label: "My Reviews",
     desc: "Reviews you've written",
     href: "/account/reviews",
-    color: "bg-purple-50 text-purple-600",
   },
   {
-    icon: ShieldCheck,
     label: "Security",
     desc: "Password and account security",
     href: "/account/security",
-    color: "bg-green-50 text-[#1a5c14]",
   },
   {
-    icon: Settings,
     label: "Settings",
     desc: "Preferences and notifications",
     href: "/account/profile",
-    color: "bg-gray-100 text-gray-600",
   },
   {
-    icon: HeadphonesIcon,
     label: "Support",
     desc: "Get help with your orders",
     href: "/account/support",
-    color: "bg-teal-50 text-teal-600",
   },
 ];
 
@@ -88,7 +69,7 @@ export default async function AccountPage() {
 
   return (
     <ShopLayout>
-      <div className="container-padded pt-32 pb-12">
+      <div className="container-padded pt-28 sm:pt-32 pb-12">
         {/* Header */}
         <div className="mb-10 flex items-center gap-4">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#1a5c14]/10">
@@ -110,15 +91,12 @@ export default async function AccountPage() {
 
         {/* Links grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {ACCOUNT_LINKS.map(({ icon: Icon, label, desc, href, color }) => (
+        {ACCOUNT_LINKS.map(({ label, desc, href }) => (
             <Link
               key={href}
               href={href}
               className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-medium hover:border-[#1a5c14]/30"
             >
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${color}`}>
-                <Icon className="h-5 w-5" />
-              </div>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-foreground group-hover:text-[#1a5c14] transition-colors">
                   {label}

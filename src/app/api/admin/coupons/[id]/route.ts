@@ -25,6 +25,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (body.minOrderAmount   != null) update.minOrderAmount   = Number(body.minOrderAmount);
   if (body.maxDiscountAmount != null) update.maxDiscountAmount = Number(body.maxDiscountAmount);
   if (body.usageLimit       != null) update.usageLimit       = body.usageLimit ? Number(body.usageLimit) : undefined;
+  if (body.userLimit        != null) update.userLimit        = body.userLimit ? Number(body.userLimit) : 1;
   if (body.startDate        != null) update.startDate        = new Date(body.startDate);
   if (body.endDate          != null) update.endDate          = new Date(body.endDate);
   if (body.isActive         != null) update.isActive         = Boolean(body.isActive);

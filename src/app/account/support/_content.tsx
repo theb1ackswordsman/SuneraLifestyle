@@ -31,16 +31,14 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 export default function SupportContent() {
   return (
-    <div className="container-padded pt-32 pb-16">
+    <div className="container-padded pt-28 sm:pt-32 pb-16">
       <div className="max-w-4xl mx-auto">
         <Link href="/account" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors">
           <ArrowLeft className="h-4 w-4" /> Back to Account
         </Link>
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50">
-            <HeadphonesIcon className="h-5 w-5 text-teal-600" />
-          </div>
+
           <h1 className="text-2xl font-black text-foreground">Help &amp; Support</h1>
         </div>
 

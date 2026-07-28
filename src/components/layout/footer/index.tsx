@@ -65,7 +65,7 @@ export async function Footer() {
           {/* Brand Column */}
           <div className="col-span-2 lg:col-span-2 space-y-4">
             <Link href="/" className="inline-block">
-              <Logo height={48} />
+              <Logo height={72} />
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
               {siteConfig.description}

@@ -37,12 +37,13 @@ export async function GET() {
       timestamp: (t.timestamp as Date).toISOString(),
     })),
     items: (o.items as Array<Record<string, unknown>>).map((i) => ({
-      _id:      String(i._id ?? ""),
-      name:     String(i.name ?? ""),
-      image:    String(i.image ?? ""),
-      slug:     String(i.slug ?? ""),
-      price:    Number(i.price ?? 0),
-      quantity: Number(i.quantity ?? 1),
+      _id:       String(i._id ?? ""),
+      productId: String(i.productId ?? i._id ?? ""),
+      name:      String(i.name ?? ""),
+      image:     String(i.image ?? ""),
+      slug:      String(i.slug ?? ""),
+      price:     Number(i.price ?? 0),
+      quantity:  Number(i.quantity ?? 1),
     })),
     shippingAddress: (() => {
       const a = o.shippingAddress as Record<string, unknown>;

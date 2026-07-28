@@ -27,6 +27,13 @@ export interface IPaymentLog {
   at: Date;
 }
 
+export interface IAdminNote {
+  _id?: unknown;
+  note: string;
+  createdAt: Date;
+  createdBy?: string;
+}
+
 export interface IPaymentDocument extends Document {
   paymentRef: string;                          // PAY-XXXXXXXXX (internal reference)
   orderId: mongoose.Types.ObjectId;
@@ -47,6 +54,7 @@ export interface IPaymentDocument extends Document {
   adminVerifiedById?: mongoose.Types.ObjectId;
   adminVerifiedAt?: Date;
   adminNote?: string;
+  adminNotes?: IAdminNote[];
   attempts: IPaymentAttempt[];
   logs: IPaymentLog[];
   createdAt: Date;
@@ -79,6 +87,15 @@ const logSchema = new Schema<IPaymentLog>(
   { _id: false }
 );
 
+const adminNoteSchema = new Schema<IAdminNote>(
+  {
+    note:      { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+    createdBy: { type: String, default: "Admin" },
+  },
+  { _id: true }
+);
+
 const paymentSchema = new Schema<IPaymentDocument>(
   {
     paymentRef:       { type: String, required: true, unique: true },
@@ -104,6 +121,7 @@ const paymentSchema = new Schema<IPaymentDocument>(
     adminVerifiedById:  { type: Schema.Types.ObjectId, ref: "User" },
     adminVerifiedAt:    { type: Date },
     adminNote:          { type: String },
+    adminNotes:         { type: [adminNoteSchema], default: [] },
     attempts:           { type: [attemptSchema], default: [] },
     logs:               { type: [logSchema], default: [] },
   },

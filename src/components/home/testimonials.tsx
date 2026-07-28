@@ -59,7 +59,7 @@ export function Testimonials() {
   const t = TESTIMONIALS[current];
 
   return (
-    <section className="section-padding bg-muted/40">
+    <section className="section-padding bg-muted/40 overflow-hidden">
       <div className="container-padded">
         {/* Header */}
         <div className="mb-12 text-center">
@@ -154,7 +154,7 @@ export function Testimonials() {
       </div>
 
       {/* Infinite scrolling marquee — all reviews */}
-      <div className="relative mt-12 overflow-hidden">
+      <div className="relative mt-12 overflow-hidden w-full max-w-full">
         {/* Fade edges */}
         <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-linear-to-r from-muted/40 to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-linear-to-l from-muted/40 to-transparent" />

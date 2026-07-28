@@ -11,7 +11,7 @@ import { cn, formatPrice } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface OrderItem { _id: string; name: string; image: string; slug: string; price: number; quantity: number }
+interface OrderItem { _id: string; name: string; image: string; slug: string; price: number; quantity: number; status?: string; variant?: { size?: string; color?: string; flavor?: string; weight?: string } }
 
 interface Order {
   _id: string; orderNumber: string; status: string; paymentStatus: string;
@@ -19,9 +19,26 @@ interface Order {
   couponCode?: string; couponDiscount: number; total: number;
   estimatedDelivery: string | null; trackingNumber: string | null;
   trackingUrl: string | null; createdAt: string;
+  cancelledBy?: { role: string; name: string; at?: string };
   timeline: { status: string; message: string; timestamp: string }[];
   items: OrderItem[];
   shippingAddress: { name: string; phone: string; addressLine1: string; addressLine2?: string; city: string; state: string; pincode: string };
+}
+
+function getUserCancelledByText(o: Order): string {
+  if (o.cancelledBy?.name) {
+    return o.cancelledBy.role === "user" ? `Cancelled by ${o.cancelledBy.name}` : "Cancelled by Sunera Lifestyle";
+  }
+  const cancelEntry = [...(o.timeline ?? [])].reverse().find((t) => t.status === "cancelled");
+  if (cancelEntry?.message) {
+    if (cancelEntry.message.toLowerCase().includes("user") || cancelEntry.message.toLowerCase().includes("customer")) {
+      return `Cancelled by customer`;
+    }
+    if (cancelEntry.message.toLowerCase().includes("sunera") || cancelEntry.message.toLowerCase().includes("admin")) {
+      return "Cancelled by Sunera Lifestyle";
+    }
+  }
+  return "Cancelled by Sunera Lifestyle";
 }
 
 interface ReturnDoc {
@@ -558,16 +575,22 @@ function OrderCard({
     <>
     <div className="rounded-2xl border border-border bg-background overflow-hidden transition-shadow hover:shadow-sm">
       {/* Header — order number + status + toggle */}
-      <button className="w-full text-left px-4 sm:px-5 pt-4 pb-3 flex items-center justify-between gap-2" onClick={() => setOpen((p) => !p)}>
-        <div className="min-w-0">
+      <button className="w-full text-left px-4 sm:px-5 pt-4 pb-3 flex items-start justify-between gap-2" onClick={() => setOpen((p) => !p)}>
+        <div className="min-w-0 flex-1">
           <p className="font-mono text-sm font-bold text-foreground truncate">{order.orderNumber}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{fmtDate(order.createdAt)} · {formatPrice(order.total)}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{fmtDate(order.createdAt)} · {formatPrice(order.total)}</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase", badgeCls)}>
-            {order.status}
-          </span>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+          {order.status === "cancelled" ? (
+            <span className="rounded-full border border-red-200 bg-red-100 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-red-700 whitespace-nowrap">
+              {getUserCancelledByText(order)}
+            </span>
+          ) : (
+            <span className={cn("rounded-full border px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-tight whitespace-nowrap", badgeCls)}>
+              {order.status}
+            </span>
+          )}
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", open && "rotate-180")} />
         </div>
       </button>
 
@@ -585,9 +608,22 @@ function OrderCard({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold line-clamp-1">{item.name}</p>
+              {item.variant?.size && (
+                <p className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1">
+                  <span>{/^\d+\s*(ml|L|g|kg)$/i.test(item.variant.size) ? "Pack Size" : "Size"}:</span>
+                  <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.5 rounded text-[11px]">
+                    {item.variant.size}
+                  </span>
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
             </div>
-            <p className="text-sm font-bold shrink-0">{formatPrice(item.price * item.quantity)}</p>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <span className={cn("rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-tight whitespace-nowrap", STATUS_BADGE[item.status || order.status] ?? "bg-gray-100 text-gray-600 border-gray-200")}>
+                {item.status || order.status}
+              </span>
+              <p className="text-sm font-bold">{formatPrice(item.price * item.quantity)}</p>
+            </div>
           </Link>
         ))}
       </div>
@@ -606,6 +642,14 @@ function OrderCard({
       {/* Expandable detail */}
       {open && (
         <div className="border-t border-border px-3 sm:px-5 pb-4 sm:pb-5 space-y-5 sm:space-y-6">
+
+          {/* Cancelled notice banner */}
+          {order.status === "cancelled" && (
+            <div className="mt-4 rounded-xl bg-red-50 border border-red-200 p-3.5 flex items-center gap-2.5 text-xs text-red-700 font-semibold">
+              <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+              <span>{getUserCancelledByText(order)}</span>
+            </div>
+          )}
 
           {/* Tracking stepper */}
           <div className="pt-5">
@@ -876,25 +920,26 @@ export default function OrdersContent() {
         </Link>
 
         <div className="flex items-center gap-3 mb-5 sm:mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 shrink-0">
-            <Package className="h-5 w-5 text-amber-600" />
-          </div>
+
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-foreground">My Orders</h1>
             {!loading && <p className="text-xs text-muted-foreground">{orders.length} order{orders.length !== 1 ? "s" : ""} total</p>}
           </div>
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-5 sm:mb-6">
+        {/* Filter tabs — all 5 in one line */}
+        <div className="flex gap-1.5 mb-5 sm:mb-6">
           {FILTER_TABS.map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={cn("rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-semibold transition-all",
-                tab === t ? "bg-[#0f0f0f] text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+              className={cn(
+                "flex-1 rounded-full px-1.5 py-1.5 text-[11px] font-semibold transition-all text-center leading-tight",
+                tab === t
+                  ? "bg-[#0f0f0f] text-white shadow-sm"
+                  : "bg-muted text-muted-foreground hover:bg-muted/70"
               )}>
               {t}
               {t !== "All" && !loading && (
-                <span className="ml-1 sm:ml-1.5 text-xs opacity-70">
+                <span className="block text-[9px] opacity-50 font-normal">
                   ({orders.filter((o) => TAB_TO_STATUSES[t].includes(o.status)).length})
                 </span>
               )}

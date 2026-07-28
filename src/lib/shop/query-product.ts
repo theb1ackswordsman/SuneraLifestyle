@@ -37,6 +37,7 @@ export interface ProductDetail {
     stock: number;
     price?: number;
     compareAtPrice?: number;
+    images?: string[];
   }[];
 }
 
@@ -97,6 +98,7 @@ export async function queryProductBySlug(slug: string): Promise<ProductDetail | 
     stock:          Number(v.stock ?? 0),
     price:          v.price != null ? Number(v.price) : undefined,
     compareAtPrice: v.compareAtPrice != null ? Number(v.compareAtPrice) : undefined,
+    images:         Array.isArray(v.images) ? (v.images as string[]) : [],
   }));
 
   return {

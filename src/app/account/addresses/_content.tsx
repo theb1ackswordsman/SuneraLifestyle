@@ -161,7 +161,7 @@ export default function AddressesContent() {
   }
 
   return (
-    <div className="container-padded pt-32 pb-16">
+    <div className="container-padded pt-28 sm:pt-32 pb-16">
       <div className="max-w-4xl mx-auto">
         <Link
           href="/account"
@@ -173,9 +173,7 @@ export default function AddressesContent() {
 
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50">
-              <MapPin className="h-5 w-5 text-blue-600" />
-            </div>
+
             <h1 className="text-2xl font-black text-foreground">Addresses</h1>
           </div>
           {!showForm && (

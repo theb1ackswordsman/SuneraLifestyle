@@ -13,12 +13,21 @@ import { getCartItems, clearCart } from "@/lib/cart-wishlist-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface ProductVariant {
+  size?: string;
+  color?: string;
+  price?: number;
+  compareAtPrice?: number;
+  stock?: number;
+}
+
 interface CartProduct {
   _id: string; name: string; slug: string;
   basePrice: number; compareAtPrice?: number;
   images: string[]; stock: number;
+  variants?: ProductVariant[];
 }
-interface Line extends CartProduct { qty: number }
+interface Line extends CartProduct { key?: string; qty: number; selectedSize?: string }
 
 interface SavedAddress {
   _id: string; label: string; name: string; phone: string;
@@ -52,7 +61,7 @@ const INDIAN_STATES = [
 ];
 
 const FREE_SHIP = 999;
-const SHIP_FEE  = 79;
+const SHIP_FEE  = 99;
 
 // ─── Razorpay script loader ───────────────────────────────────────────────────
 
@@ -280,6 +289,11 @@ function SuccessScreen({ orderNumber }: { orderNumber: string }) {
   const eta = new Date(Date.now() + 5 * 86400000);
   const fmt = eta.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 
+  // Scroll to top so the confirmation is immediately visible
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   return (
     <div className="pt-20 lg:pt-24">
       <div className="container-padded flex flex-col items-center justify-center py-20 text-center">
@@ -349,9 +363,11 @@ function SuccessScreen({ orderNumber }: { orderNumber: string }) {
 export function CheckoutContent({
   buyNowProductId,
   buyNowQty = 1,
+  buyNowSize,
 }: {
   buyNowProductId?: string;
   buyNowQty?: number;
+  buyNowSize?: string;
 }) {
   const [lines,        setLines]        = useState<Line[]>([]);
   const [cartLoading,  setCartLoading]  = useState(true);
@@ -368,6 +384,7 @@ export function CheckoutContent({
 
   const [showCouponPicker, setShowCouponPicker] = useState(false);
   const [applied,          setApplied]          = useState<AppliedCoupon | null>(null);
+  const [shippingSettings, setShippingSettings] = useState({ freeAbove: 999, standardFee: 99 });
 
   const [placing,          setPlacing]          = useState(false);
   const [orderDone,        setOrderDone]        = useState<string | null>(null);
@@ -388,7 +405,14 @@ export function CheckoutContent({
         const res  = await fetch(`/api/products/batch?ids=${buyNowProductId}`);
         const json = await res.json();
         const p: CartProduct | undefined = (json.data ?? [])[0];
-        if (p) setLines([{ ...p, qty: buyNowQty }]);
+        if (p) {
+          const matchedVariant = p.variants?.find(
+            (v) => String(v.size ?? "").trim() === String(buyNowSize ?? "").trim()
+          );
+          const effectivePrice = matchedVariant?.price != null && matchedVariant.price > 0 ? matchedVariant.price : p.basePrice;
+          const effectiveCompareAt = matchedVariant?.compareAtPrice != null && matchedVariant.compareAtPrice > 0 ? matchedVariant.compareAtPrice : p.compareAtPrice;
+          setLines([{ ...p, qty: buyNowQty, selectedSize: buyNowSize, basePrice: effectivePrice, compareAtPrice: effectiveCompareAt }]);
+        }
       } finally {
         setCartLoading(false);
       }
@@ -397,19 +421,25 @@ export function CheckoutContent({
 
     const items = getCartItems();
     if (!items.length) { setLines([]); setCartLoading(false); return; }
-    const ids = items.map((i) => i.productId).join(",");
+    const ids = Array.from(new Set(items.map((i) => i.productId))).join(",");
     try {
       const res  = await fetch(`/api/products/batch?ids=${ids}`);
       const json = await res.json();
       const products: CartProduct[] = json.data ?? [];
-      setLines(items.flatMap(({ productId, qty }) => {
+      setLines(items.flatMap(({ key, productId, qty, selectedSize }) => {
         const p = products.find((x) => x._id === productId);
-        return p ? [{ ...p, qty }] : [];
+        if (!p) return [];
+        const matchedVariant = p.variants?.find(
+          (v) => String(v.size ?? "").trim() === String(selectedSize ?? "").trim()
+        );
+        const effectivePrice = matchedVariant?.price != null && matchedVariant.price > 0 ? matchedVariant.price : p.basePrice;
+        const effectiveCompareAt = matchedVariant?.compareAtPrice != null && matchedVariant.compareAtPrice > 0 ? matchedVariant.compareAtPrice : p.compareAtPrice;
+        return [{ ...p, key, qty, selectedSize, basePrice: effectivePrice, compareAtPrice: effectiveCompareAt }];
       }));
     } finally {
       setCartLoading(false);
     }
-  }, [buyNowProductId, buyNowQty]);
+  }, [buyNowProductId, buyNowQty, buyNowSize]);
 
   useEffect(() => {
     loadCart();
@@ -432,12 +462,23 @@ export function CheckoutContent({
         else setShowNewAddr(true);
       })
       .catch(() => setShowNewAddr(true));
+    fetch("/api/settings/public")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success && j.data?.shipping) {
+          setShippingSettings({
+            freeAbove: j.data.shipping.freeAbove ?? 999,
+            standardFee: j.data.shipping.standardFee ?? 99,
+          });
+        }
+      })
+      .catch(() => {});
   }, [loadCart]);
 
   // ── Totals ────────────────────────────────────────────────────────────────
   const subtotal       = lines.reduce((s, l) => s + l.basePrice * l.qty, 0);
   const couponDiscount = applied?.discount ?? 0;
-  const shipping       = subtotal >= FREE_SHIP ? 0 : SHIP_FEE;
+  const shipping       = subtotal >= shippingSettings.freeAbove ? 0 : shippingSettings.standardFee;
   const total          = Math.max(0, subtotal - couponDiscount) + shipping;
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -468,12 +509,14 @@ export function CheckoutContent({
 
     return {
       items: lines.map((l) => ({
-        productId: l._id,
-        name:      l.name,
-        image:     l.images[0] ?? "",
-        slug:      l.slug,
-        price:     l.basePrice,
-        quantity:  l.qty,
+        productId:    l._id,
+        name:         l.name,
+        image:        l.images[0] ?? "",
+        slug:         l.slug,
+        price:        l.basePrice,
+        quantity:     l.qty,
+        selectedSize: l.selectedSize,
+        variant:      l.selectedSize ? { size: l.selectedSize } : undefined,
       })),
       shippingAddress:  addr,
       paymentMethod:    "razorpay",
@@ -858,7 +901,7 @@ export function CheckoutContent({
                 ) : (
                   <ul className="divide-y divide-border -mx-1 mb-4">
                     {lines.map((l) => (
-                      <li key={l._id} className="flex gap-3 py-3 px-1">
+                      <li key={l.key || `${l._id}:${l.selectedSize}`} className="flex gap-3 py-3 px-1">
                         <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-muted">
                           {l.images[0]
                             // eslint-disable-next-line @next/next/no-img-element
@@ -871,6 +914,14 @@ export function CheckoutContent({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold leading-snug line-clamp-2">{l.name}</p>
+                          {l.selectedSize && (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground font-medium flex items-center gap-1">
+                              <span>{/^\d+\s*(ml|L|g|kg)$/i.test(l.selectedSize) ? "Pack Size" : "Size"}:</span>
+                              <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.2 rounded text-[10px]">
+                                {l.selectedSize}
+                              </span>
+                            </p>
+                          )}
                           <p className="mt-0.5 text-xs text-muted-foreground">{formatPrice(l.basePrice)} each</p>
                         </div>
                         <p className="text-sm font-bold shrink-0">{formatPrice(l.basePrice * l.qty)}</p>

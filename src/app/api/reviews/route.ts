@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connection";
 import { Review, REVIEW_STATUS } from "@/models/review.model";
 import { Order } from "@/models/order.model";
+import { Product } from "@/models/product.model";
 import { getServerSession } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/email/mailer";
 import { reviewSubmittedTemplate } from "@/lib/email/templates";
@@ -34,7 +36,15 @@ export async function GET(req: NextRequest) {
       const session = await getServerSession();
       if (!session.isAuthenticated || !session.user) return unauthorized();
 
-      const q: Record<string, unknown> = { customerId: session.user._id, deletedAt: null };
+      let uObjId: mongoose.Types.ObjectId | string = session.user._id;
+      if (mongoose.Types.ObjectId.isValid(session.user._id)) {
+        uObjId = new mongoose.Types.ObjectId(session.user._id);
+      }
+
+      const q: Record<string, unknown> = {
+        $or: [{ customerId: uObjId }, { customerId: session.user._id }],
+        deletedAt: null,
+      };
       const [reviews, total] = await Promise.all([
         Review.find(q).sort({ createdAt: -1 }).populate("productId", "name slug images").lean(),
         Review.countDocuments(q),
@@ -84,6 +94,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json() as {
       productId?: string;
+      slug?:      string;
       rating?:    number;
       title?:     string;
       body?:      string;
@@ -91,44 +102,93 @@ export async function POST(req: NextRequest) {
       video?:     string;
     };
 
-    const { productId, rating, title, body: reviewBody, images, video } = body;
+    const { productId, slug, rating, title, body: reviewBody, images, video } = body;
 
-    if (!productId)                            return badRequest("productId is required.");
+    if (!productId && !slug)                  return badRequest("productId or slug is required.");
     if (!rating || rating < 1 || rating > 5)  return badRequest("Rating must be between 1 and 5.");
     if (!reviewBody?.trim())                   return badRequest("Review body is required.");
 
     await connectDB();
 
+    // Look up the exact product by productId or slug
+    let targetProduct: { _id: mongoose.Types.ObjectId; name?: string; slug?: string } | null = null;
+
+    if (productId && mongoose.Types.ObjectId.isValid(productId)) {
+      targetProduct = await Product.findById(productId).lean() as { _id: mongoose.Types.ObjectId; name?: string; slug?: string } | null;
+    }
+    if (!targetProduct && (slug || productId)) {
+      targetProduct = await Product.findOne({ slug: slug || productId, deletedAt: null }).lean() as { _id: mongoose.Types.ObjectId; name?: string; slug?: string } | null;
+    }
+
+    if (!targetProduct) {
+      return badRequest("Product not found.");
+    }
+
+    const pObjId = targetProduct._id;
+    const targetSlug = targetProduct.slug ?? slug;
+
+    let uObjId: mongoose.Types.ObjectId | string = session.user._id;
+    if (mongoose.Types.ObjectId.isValid(session.user._id)) {
+      uObjId = new mongoose.Types.ObjectId(session.user._id);
+    }
+
+    const userCond = { $or: [{ userId: uObjId }, { userId: session.user._id }] };
+    const itemCond = {
+      $or: [
+        { "items.productId": pObjId },
+        { "items.productId": String(pObjId) },
+        ...(targetSlug ? [{ "items.slug": targetSlug }] : []),
+      ],
+    };
+
     // Must have a delivered order containing this product
     const order = await Order.findOne({
-      userId:            session.user._id,
-      status:            "delivered",
-      "items.productId": productId,
+      $and: [userCond, itemCond],
+      status: "delivered",
     }).lean();
 
     if (!order) {
+      // Check if user bought it but order isn't delivered yet
+      const anyOrder = await Order.findOne({
+        $and: [userCond, itemCond],
+      }).lean();
+
+      if (anyOrder && anyOrder.status !== "delivered") {
+        return forbidden(`Your order is currently '${anyOrder.status}'. You can review it once delivered.`);
+      }
       return forbidden("You can only review products you have purchased and received.");
     }
 
-    // One review per product per user
+    // Check if review already exists for this product by this user
     const existing = await Review.findOne({
-      customerId: session.user._id,
-      productId,
-      deletedAt:  null,
-      status:     { $ne: REVIEW_STATUS.REJECTED },
+      $or: [{ customerId: uObjId }, { customerId: session.user._id }],
+      productId: pObjId,
     });
-    if (existing) return conflict("You have already reviewed this product.");
+
+    if (existing) {
+      existing.customerId = uObjId as any;
+      existing.rating     = rating;
+      existing.title      = title?.trim() || undefined;
+      existing.body       = reviewBody.trim();
+      if (Array.isArray(images) && images.length > 0) {
+        existing.images   = images.filter(Boolean).slice(0, 5);
+      }
+      existing.status     = REVIEW_STATUS.APPROVED;
+      existing.deletedAt  = undefined;
+      await existing.save();
+      return ok(existing, "Review updated successfully.");
+    }
 
     const review = await Review.create({
-      productId,
+      productId:        pObjId,
       orderId:          order._id,
-      customerId:       session.user._id,
+      customerId:       uObjId,
       rating,
       title:            title?.trim() || undefined,
       body:             reviewBody.trim(),
       images:           Array.isArray(images) ? images.filter(Boolean).slice(0, 5) : [],
       video:            video?.trim() || undefined,
-      status:           REVIEW_STATUS.PENDING,
+      status:           REVIEW_STATUS.APPROVED,
       verifiedPurchase: true,
     });
 
@@ -139,10 +199,15 @@ export async function POST(req: NextRequest) {
         productName: "your product",
         trackUrl:    `${BASE_URL}/account/reviews`,
       }),
-    }).catch((e) => console.error("[Review email] submitted:", e));
+    }).catch((e) => console.error("[Review email] submitted error:", e));
 
     return created(review);
-  } catch (err) {
+  } catch (err: unknown) {
+    console.error("[POST /api/reviews Error]:", err);
+    const mongoErr = err as { code?: number | string; message?: string };
+    if (mongoErr?.code === 11000 || mongoErr?.code === "11000" || mongoErr?.message?.includes("E11000")) {
+      return conflict("You have already reviewed this product.");
+    }
     return handleApiError(err);
   }
 }

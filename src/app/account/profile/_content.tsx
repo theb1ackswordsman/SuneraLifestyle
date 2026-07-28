@@ -119,7 +119,7 @@ export default function ProfileContent() {
   }
 
   return (
-    <div className="container-padded pt-32 pb-16">
+    <div className="container-padded pt-28 sm:pt-32 pb-16">
       <div className="max-w-4xl mx-auto">
         <Link
           href="/account"
@@ -129,9 +129,7 @@ export default function ProfileContent() {
         </Link>
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100">
-            <Settings className="h-5 w-5 text-gray-600" />
-          </div>
+
           <h1 className="text-2xl font-black text-foreground">Profile Settings</h1>
         </div>
 

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   CreditCard, Search, RefreshCw, CheckCircle, XCircle,
   ChevronLeft, ChevronRight, Eye, X, AlertTriangle, Clock,
-  ShieldCheck, FileText, Loader2,
+  ShieldCheck, FileText, Loader2, Lock, Check, Plus, Trash2, MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
@@ -26,6 +26,13 @@ interface PaymentAttempt {
   note?: string;
 }
 
+interface AdminNoteItem {
+  _id?: string;
+  note: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
 interface Payment {
   _id: string;
   paymentRef: string;
@@ -40,6 +47,7 @@ interface Payment {
   status: string;
   webhookReceived: boolean;
   adminNote?: string;
+  adminNotes?: AdminNoteItem[];
   adminVerifiedAt?: string;
   attempts?: PaymentAttempt[];
   logs?: PaymentLog[];
@@ -88,6 +96,10 @@ export default function AdminPaymentsPage() {
 
   const [detail, setDetail]        = useState<{ payment: Payment; order: OrderDetail | null } | null>(null);
   const [detailLoading, setDL]     = useState(false);
+  const [adminNoteInput, setAdminNoteInput] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
   const [verifyModal, setVerifyModal] = useState<{ payment: Payment; action: "mark_success" | "mark_failed" } | null>(null);
   const [verifyNote, setVerifyNote] = useState("");
   const [verifyLoading, setVL]    = useState(false);
@@ -116,14 +128,69 @@ export default function AdminPaymentsPage() {
   async function openDetail(p: Payment) {
     setDL(true);
     setDetail(null);
+    setAdminNoteInput("");
     try {
       const res = await fetch(`/api/admin/payments/${p._id}`);
       const json = await res.json();
-      if (json.success) setDetail(json.data);
+      if (json.success) {
+        setDetail(json.data);
+      }
     } finally {
       setDL(false);
-      // show modal even if detail fetch fails — use list data
       if (!detail) setDetail({ payment: p, order: null });
+    }
+  }
+
+  async function addAdminNote() {
+    if (!detail || !adminNoteInput.trim()) return;
+    setSavingNote(true);
+    try {
+      const res = await fetch(`/api/admin/payments/${detail.payment._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminNote: adminNoteInput.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setDetail((prev) => prev ? {
+          ...prev,
+          payment: {
+            ...prev.payment,
+            adminNote: json.data.adminNote,
+            adminNotes: json.data.adminNotes,
+          }
+        } : null);
+        setAdminNoteInput("");
+        await load();
+      }
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
+  async function deleteAdminNote(noteId: string) {
+    if (!detail) return;
+    setDeletingNoteId(noteId);
+    try {
+      const res = await fetch(`/api/admin/payments/${detail.payment._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deleteNoteId: noteId }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setDetail((prev) => prev ? {
+          ...prev,
+          payment: {
+            ...prev.payment,
+            adminNote: json.data.adminNote,
+            adminNotes: json.data.adminNotes,
+          }
+        } : null);
+        await load();
+      }
+    } finally {
+      setDeletingNoteId(null);
     }
   }
 
@@ -244,7 +311,7 @@ export default function AdminPaymentsPage() {
                     <button
                       onClick={() => openDetail(p)}
                       className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                      title="View Details"
+                      title="View Details & Notes"
                     >
                       <Eye className="h-4 w-4" />
                     </button>
@@ -325,7 +392,7 @@ export default function AdminPaymentsPage() {
                   <div className="ml-auto"><StatusBadge status={detail.payment.status} /></div>
                 </div>
 
-                {/* Key Info */}
+                {/* Key Info Grid */}
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                   {[
                     { label: "Amount", value: formatPrice(detail.payment.amount) },
@@ -336,13 +403,100 @@ export default function AdminPaymentsPage() {
                     { label: "Bank Ref (RRN)", value: detail.payment.transactionRef ?? "—" },
                     { label: "Customer", value: detail.payment.userId?.name ?? "—" },
                     { label: "Email", value: detail.payment.userId?.email ?? "—" },
-                    { label: "Admin Note", value: detail.payment.adminNote ?? "—" },
+                    { label: "Verified At", value: detail.payment.adminVerifiedAt ? new Date(detail.payment.adminVerifiedAt).toLocaleDateString("en-IN") : "—" },
                   ].map(({ label, value }) => (
                     <div key={label} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
                       <p className="text-xs text-gray-400 mb-0.5">{label}</p>
                       <p className="text-sm font-semibold text-gray-900 break-all">{value}</p>
                     </div>
                   ))}
+                </div>
+
+                {/* ── Multiple Private Admin Notes Section ──────────────────── */}
+                <div className="rounded-2xl border border-[#1a5c14]/20 bg-[#1a5c14]/5 p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-[#1a5c14]" />
+                      <h3 className="text-xs font-black uppercase tracking-wider text-gray-900">
+                        Private Admin Notes
+                      </h3>
+                      <span className="rounded-full bg-[#1a5c14]/10 px-2 py-0.5 text-[10px] font-bold text-[#1a5c14]">
+                        Private to Admin
+                      </span>
+                    </div>
+                    <span className="text-xs font-semibold text-gray-500">
+                      {detail.payment.adminNotes?.length ?? 0} note{(detail.payment.adminNotes?.length ?? 0) !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+
+                  {/* Add New Note Input */}
+                  <div className="space-y-2">
+                    <textarea
+                      value={adminNoteInput}
+                      onChange={(e) => setAdminNoteInput(e.target.value)}
+                      placeholder="Add a new private admin note (e.g. Bank reference verified, Cash collected, customer call note)..."
+                      rows={2}
+                      className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-900 focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        onClick={addAdminNote}
+                        disabled={savingNote || !adminNoteInput.trim()}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#1a5c14] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#103a0c] transition-all disabled:opacity-50"
+                      >
+                        {savingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Plus className="h-3.5 w-3.5" /> Add Note</>}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Existing Notes List */}
+                  {((detail.payment.adminNotes && detail.payment.adminNotes.length > 0) || detail.payment.adminNote) ? (
+                    <div className="space-y-2 pt-2 border-t border-[#1a5c14]/10">
+                      {/* Render adminNotes array */}
+                      {detail.payment.adminNotes && detail.payment.adminNotes.length > 0 ? (
+                        [...detail.payment.adminNotes].reverse().map((n, idx) => (
+                          <div key={n._id ?? idx} className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-2xs">
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                                <MessageSquare className="h-3 w-3 text-[#1a5c14]" />
+                                <span className="font-semibold text-gray-700">{n.createdBy ?? "Admin"}</span>
+                                <span>&middot;</span>
+                                <span>{new Date(n.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                              </div>
+                              <p className="text-xs text-gray-800 font-medium whitespace-pre-wrap leading-relaxed">
+                                {n.note}
+                              </p>
+                            </div>
+                            {n._id && (
+                              <button
+                                onClick={() => deleteAdminNote(n._id!)}
+                                disabled={deletingNoteId === n._id}
+                                className="text-gray-400 hover:text-red-600 p-1 transition-colors shrink-0"
+                                title="Delete Note"
+                              >
+                                {deletingNoteId === n._id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      ) : detail.payment.adminNote ? (
+                        /* Fallback for legacy single adminNote */
+                        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-2xs">
+                          <p className="text-xs text-gray-800 font-medium whitespace-pre-wrap">
+                            {detail.payment.adminNote}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 text-center py-2 italic">
+                      No private admin notes added yet.
+                    </p>
+                  )}
                 </div>
 
                 {/* Attempt Log */}

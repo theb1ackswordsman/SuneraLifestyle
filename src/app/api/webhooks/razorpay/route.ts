@@ -5,6 +5,7 @@ import { Order } from "@/models/order.model";
 import { Payment } from "@/models/payment.model";
 import { Product } from "@/models/product.model";
 import { User } from "@/models/user.model";
+import { Coupon } from "@/models/coupon.model";
 import { ORDER_STATUS, PAYMENT_STATUS } from "@/constants";
 import { sendEmail } from "@/lib/email/mailer";
 import { orderConfirmationTemplate, orderStatusTemplate } from "@/lib/email/templates";
@@ -127,14 +128,20 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    // Decrement stock only if not already decremented (pending_verification orders may have had it done by client PUT)
+    // Decrement stock & increment coupon usage only if not already done
     if (!alreadyDeducted) {
-      await Promise.all(
-        (order.items as unknown as Array<{ productId: unknown; quantity: number }>).map((item) =>
+      await Promise.all([
+        ...(order.items as unknown as Array<{ productId: unknown; quantity: number }>).map((item) =>
           Product.findByIdAndUpdate(item.productId, { $inc: { stock: -item.quantity } })
             .catch((e: unknown) => console.error("[Stock] webhook decrement failed:", e))
-        )
-      );
+        ),
+        order.couponCode
+          ? Coupon.updateOne(
+              { code: order.couponCode },
+              { $inc: { usageCount: 1 }, $push: { usedBy: order.userId } }
+            ).catch((e) => console.error("[Webhook Coupon usage update failed]", e))
+          : Promise.resolve(),
+      ]);
     }
 
     // Send confirmation email
@@ -192,7 +199,6 @@ async function getCustomerEmail(userId: unknown): Promise<string> {
 
 async function sendConfirmationEmail(order: Record<string, unknown>, paymentId: string) {
   const toEmail = await getCustomerEmail(order.userId);
-  if (!toEmail) return;
 
   const addr = order.shippingAddress as Record<string, string>;
   const items = (order.items as Array<Record<string, unknown>>).map((i) => ({
@@ -206,25 +212,61 @@ async function sendConfirmationEmail(order: Record<string, unknown>, paymentId: 
     ? new Date(order.estimatedDelivery as Date).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
     : "4–7 business days";
 
-  await sendEmail({
-    to:      toEmail,
-    subject: `Order Confirmed – ${order.orderNumber} | SunEra Lifestyle`,
-    html:    orderConfirmationTemplate({
-      name:              addr.name ?? "Valued Customer",
-      orderNumber:       order.orderNumber as string,
-      orderDate:         new Date(order.createdAt as Date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
-      estimatedDelivery: eta,
-      items,
-      subtotal:          order.subtotal as number,
-      shippingFee:       order.shippingFee as number,
-      couponDiscount:    order.couponDiscount as number,
-      couponCode:        order.couponCode as string | undefined,
-      total:             order.total as number,
-      shippingAddress:   { name: addr.name ?? "", addressLine1: addr.addressLine1 ?? "", city: addr.city ?? "", state: addr.state ?? "", pincode: addr.pincode ?? "" },
-      paymentMethod:     order.paymentMethod as string,
-      trackUrl:          `${BASE_URL}/account/orders`,
-    }),
-  });
+  // Send confirmation email to Customer
+  if (toEmail) {
+    sendEmail({
+      to:      toEmail,
+      subject: `Order Confirmed – ${order.orderNumber} | SunEra Lifestyle`,
+      html:    orderConfirmationTemplate({
+        name:              addr.name ?? "Valued Customer",
+        orderNumber:       order.orderNumber as string,
+        orderDate:         new Date(order.createdAt as Date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+        estimatedDelivery: eta,
+        items,
+        subtotal:          order.subtotal as number,
+        shippingFee:       order.shippingFee as number,
+        couponDiscount:    order.couponDiscount as number,
+        couponCode:        order.couponCode as string | undefined,
+        total:             order.total as number,
+        shippingAddress:   { name: addr.name ?? "", addressLine1: addr.addressLine1 ?? "", city: addr.city ?? "", state: addr.state ?? "", pincode: addr.pincode ?? "" },
+        paymentMethod:     order.paymentMethod as string,
+        trackUrl:          `${BASE_URL}/account/orders`,
+      }),
+    }).catch((e) => console.error("[Webhook Email] customer email failed:", e));
+  }
+
+  // Send new order notification email to Admin
+  try {
+    const adminUsers = await User.find({ role: "admin", isActive: true }).select("email").lean();
+    const adminEmails = adminUsers.map((u) => u.email).filter(Boolean);
+    const fallbackAdmin = process.env.ADMIN_EMAIL ?? "admin@sunera.in";
+    const targetAdmins = Array.from(new Set([...adminEmails, fallbackAdmin]));
+
+    for (const adminEmail of targetAdmins) {
+      sendEmail({
+        to:      adminEmail,
+        subject: `🚨 New Order Received – #${order.orderNumber} | SunEra Admin`,
+        html:    orderConfirmationTemplate({
+          name:              addr.name ?? "Valued Customer",
+          orderNumber:       order.orderNumber as string,
+          orderDate:         new Date(order.createdAt as Date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }),
+          estimatedDelivery: eta,
+          items,
+          subtotal:          order.subtotal as number,
+          shippingFee:       order.shippingFee as number,
+          couponDiscount:    order.couponDiscount as number,
+          couponCode:        order.couponCode as string | undefined,
+          total:             order.total as number,
+          shippingAddress:   { name: addr.name ?? "", addressLine1: addr.addressLine1 ?? "", city: addr.city ?? "", state: addr.state ?? "", pincode: addr.pincode ?? "" },
+          paymentMethod:     order.paymentMethod as string,
+          trackUrl:          `${BASE_URL}/admin/orders`,
+        }),
+      }).catch((e) => console.error("[Webhook Email] admin email failed:", e));
+    }
+  } catch (e) {
+    console.error("[Webhook Email] admin lookup failed:", e);
+  }
+
   void paymentId;
 }
 

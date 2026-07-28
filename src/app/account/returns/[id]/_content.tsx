@@ -60,9 +60,21 @@ function fmtTime(iso: string) {
 function ReturnStepper({ status }: { status: string }) {
   if (status === "rejected") {
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-        <X className="h-4 w-4 shrink-0" />
-        <span className="font-semibold">Return Rejected</span>
+      <div className="flex items-center justify-between gap-3 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+        <div className="flex items-center gap-2">
+          <X className="h-4 w-4 shrink-0 text-red-600" />
+          <span className="font-bold">Return Request Rejected</span>
+        </div>
+      </div>
+    );
+  }
+  if (status === "cancelled") {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl bg-gray-100 border border-gray-200 p-4 text-sm text-gray-700">
+        <div className="flex items-center gap-2">
+          <X className="h-4 w-4 shrink-0 text-gray-500" />
+          <span className="font-bold">Return Request Cancelled</span>
+        </div>
       </div>
     );
   }
@@ -103,6 +115,7 @@ export default function ReturnDetailContent() {
   const [returnDoc, setReturn] = useState<ReturnDoc | null>(null);
   const [loading,   setLoading] = useState(true);
   const [error,     setError]   = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     fetch(`/api/returns/${id}`)
@@ -115,14 +128,29 @@ export default function ReturnDetailContent() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  async function handleCancelReturn() {
+    if (!returnDoc) return;
+    if (!window.confirm("Are you sure you want to cancel this return request? You can submit a new request if needed.")) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/returns/${returnDoc._id}`, { method: "PATCH" });
+      const json = await res.json();
+      if (json.success) {
+        setReturn((prev) => prev ? { ...prev, status: "cancelled" } : null);
+      }
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   if (loading) return (
-    <div className="container-padded pt-32 pb-16 max-w-3xl mx-auto space-y-4">
+    <div className="container-padded pt-28 sm:pt-32 pb-16 max-w-3xl mx-auto space-y-4">
       {[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />)}
     </div>
   );
 
   if (error || !returnDoc) return (
-    <div className="container-padded pt-32 pb-16 max-w-3xl mx-auto text-center">
+    <div className="container-padded pt-28 sm:pt-32 pb-16 max-w-3xl mx-auto text-center">
       <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
       <p className="text-foreground font-semibold">{error || "Return not found."}</p>
       <Link href="/account/returns" className="mt-4 inline-block text-sm text-[#1a5c14] hover:underline">← Back to Returns</Link>
@@ -132,7 +160,7 @@ export default function ReturnDetailContent() {
   const r = returnDoc;
 
   return (
-    <div className="container-padded pt-32 pb-16">
+    <div className="container-padded pt-28 sm:pt-32 pb-16">
       <div className="max-w-3xl mx-auto space-y-6">
         <Link href="/account/returns"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -140,13 +168,32 @@ export default function ReturnDetailContent() {
         </Link>
 
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50">
-            <RotateCcw className="h-5 w-5 text-orange-500" />
-          </div>
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-black">{r.returnNumber}</h1>
             <p className="text-xs text-muted-foreground">Order {r.orderNumber} · Submitted {fmtDate(r.createdAt)}</p>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            {(r.status === "requested" || r.status === "under_review") && (
+              <button
+                onClick={handleCancelReturn}
+                disabled={cancelling}
+                className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors disabled:opacity-50"
+              >
+                {cancelling ? "Cancelling..." : "Cancel Return Request"}
+              </button>
+            )}
+
+            {(r.status === "cancelled" || r.status === "rejected") && (
+              <Link
+                href="/account/orders"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1a5c14] px-4 py-2 text-xs font-bold text-white hover:bg-[#103a0c] transition-colors"
+              >
+                Request Return Again →
+              </Link>
+            )}
           </div>
         </div>
 

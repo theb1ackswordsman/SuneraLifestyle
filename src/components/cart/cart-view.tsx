@@ -10,6 +10,14 @@ import {
   getCartItems, setCartQty, removeFromCart,
 } from "@/lib/cart-wishlist-store";
 
+interface ProductVariant {
+  size?: string;
+  color?: string;
+  price?: number;
+  compareAtPrice?: number;
+  stock?: number;
+}
+
 interface CartProduct {
   _id: string;
   name: string;
@@ -18,12 +26,17 @@ interface CartProduct {
   compareAtPrice?: number;
   images: string[];
   stock: number;
+  variants?: ProductVariant[];
 }
 
-interface Line extends CartProduct { qty: number }
+interface Line extends CartProduct {
+  key: string;
+  qty: number;
+  selectedSize?: string;
+}
 
 const FREE_SHIP_THRESHOLD = 999;
-const SHIPPING_FEE        = 79;
+const SHIPPING_FEE        = 99;
 
 export function CartView() {
   const [lines,   setLines]   = useState<Line[]>([]);
@@ -33,15 +46,21 @@ export function CartView() {
     const items = getCartItems();
     if (!items.length) { setLines([]); setLoading(false); return; }
 
-    const ids = items.map((i) => i.productId).join(",");
+    const ids = Array.from(new Set(items.map((i) => i.productId))).join(",");
     try {
       const res  = await fetch(`/api/products/batch?ids=${ids}`);
       const json = await res.json();
       const products: CartProduct[] = json.data ?? [];
 
-      const merged: Line[] = items.flatMap(({ productId, qty }) => {
+      const merged: Line[] = items.flatMap(({ key, productId, qty, selectedSize }) => {
         const p = products.find((x) => x._id === productId);
-        return p ? [{ ...p, qty }] : [];
+        if (!p) return [];
+        const matchedVariant = p.variants?.find(
+          (v) => String(v.size ?? "").trim() === String(selectedSize ?? "").trim()
+        );
+        const effectivePrice = matchedVariant?.price != null && matchedVariant.price > 0 ? matchedVariant.price : p.basePrice;
+        const effectiveCompareAt = matchedVariant?.compareAtPrice != null && matchedVariant.compareAtPrice > 0 ? matchedVariant.compareAtPrice : p.compareAtPrice;
+        return [{ ...p, key, qty, selectedSize, basePrice: effectivePrice, compareAtPrice: effectiveCompareAt }];
       });
       setLines(merged);
     } catch {
@@ -58,18 +77,18 @@ export function CartView() {
     return () => window.removeEventListener("sunera:cart-updated", sync);
   }, [loadCart]);
 
-  function handleQty(id: string, qty: number) {
-    setCartQty(id, qty);
+  function handleQty(key: string, qty: number) {
+    setCartQty(key, qty);
     setLines((prev) =>
       qty <= 0
-        ? prev.filter((l) => l._id !== id)
-        : prev.map((l) => l._id === id ? { ...l, qty } : l)
+        ? prev.filter((l) => l.key !== key)
+        : prev.map((l) => l.key === key ? { ...l, qty } : l)
     );
   }
 
-  function handleRemove(id: string) {
-    removeFromCart(id);
-    setLines((prev) => prev.filter((l) => l._id !== id));
+  function handleRemove(key: string) {
+    removeFromCart(key);
+    setLines((prev) => prev.filter((l) => l.key !== key));
   }
 
   const subtotal = lines.reduce((s, l) => s + l.basePrice * l.qty, 0);
@@ -143,7 +162,7 @@ export function CartView() {
               <AnimatePresence initial={false}>
                 {lines.map((l) => (
                   <motion.li
-                    key={l._id}
+                    key={l.key}
                     layout
                     exit={{ opacity: 0, height: 0, overflow: "hidden" }}
                     transition={{ duration: 0.2 }}
@@ -164,14 +183,24 @@ export function CartView() {
 
                     <div className="flex flex-1 flex-col min-w-0">
                       <div className="flex items-start justify-between gap-3">
-                        <Link
-                          href={`/product/${l.slug}`}
-                          className="text-sm font-semibold hover:text-[#1a5c14] transition-colors line-clamp-2"
-                        >
-                          {l.name}
-                        </Link>
+                        <div>
+                          <Link
+                            href={`/product/${l.slug}`}
+                            className="text-sm font-semibold hover:text-[#1a5c14] transition-colors line-clamp-2"
+                          >
+                            {l.name}
+                          </Link>
+                          {l.selectedSize && (
+                            <p className="text-xs text-muted-foreground mt-1 font-medium flex items-center gap-1">
+                              <span>{/^\d+\s*(ml|L|g|kg)$/i.test(l.selectedSize) ? "Pack Size" : "Size"}:</span>
+                              <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.5 rounded-md text-[11px]">
+                                {l.selectedSize}
+                              </span>
+                            </p>
+                          )}
+                        </div>
                         <button
-                          onClick={() => handleRemove(l._id)}
+                          onClick={() => handleRemove(l.key)}
                           className="shrink-0 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                           aria-label={`Remove ${l.name}`}
                         >
@@ -182,7 +211,7 @@ export function CartView() {
                       <div className="mt-auto flex items-end justify-between pt-3">
                         <div className="flex items-center rounded-lg border border-border">
                           <button
-                            onClick={() => handleQty(l._id, l.qty - 1)}
+                            onClick={() => handleQty(l.key, l.qty - 1)}
                             className="flex h-8 w-8 items-center justify-center rounded-l-lg transition-colors hover:bg-muted"
                             aria-label="Decrease"
                           >
@@ -190,7 +219,7 @@ export function CartView() {
                           </button>
                           <span className="w-8 text-center text-sm font-bold">{l.qty}</span>
                           <button
-                            onClick={() => handleQty(l._id, l.qty + 1)}
+                            onClick={() => handleQty(l.key, l.qty + 1)}
                             disabled={l.stock > 0 && l.qty >= l.stock}
                             className="flex h-8 w-8 items-center justify-center rounded-r-lg transition-colors hover:bg-muted disabled:opacity-40"
                             aria-label="Increase"

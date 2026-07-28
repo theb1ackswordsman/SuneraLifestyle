@@ -64,10 +64,10 @@ export async function POST(req: NextRequest) {
       return badRequest(`Return window expired. Returns must be requested within ${RETURN_WINDOW_DAYS} days of delivery.`);
     }
 
-    // Prevent duplicate active return for this order
+    // Prevent duplicate active return for this order (allow if previous return was rejected or cancelled)
     const existing = await Return.findOne({
       orderId,
-      status: { $nin: [RETURN_STATUS.REJECTED] },
+      status: { $nin: [RETURN_STATUS.REJECTED, RETURN_STATUS.CANCELLED] },
       deletedAt: null,
     });
     if (existing) return conflict("A return request already exists for this order.");
