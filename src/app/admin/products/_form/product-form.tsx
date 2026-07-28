@@ -472,9 +472,9 @@ function VariantsSection({
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-4">
-      <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-500">
-        <Icon className="h-4 w-4" /> {title}
+    <div className="rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-6 space-y-4 shadow-2xs overflow-hidden">
+      <h2 className="flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-500">
+        <Icon className="h-4 w-4 shrink-0" /> {title}
       </h2>
       {children}
     </div>
@@ -675,7 +675,7 @@ export default function ProductForm({ productId }: Props) {
   ] as const;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-3xl space-y-6">
+    <div className="p-3 sm:p-6 lg:p-8 max-w-3xl space-y-4 sm:space-y-6 overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center gap-4">
         <button onClick={() => router.push("/admin/products")}
@@ -756,7 +756,7 @@ export default function ProductForm({ productId }: Props) {
 
       {/* Pricing & Stock */}
       <Section icon={DollarSign} title="Pricing & Stock">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
           <div>
             <Label>Selling Price (₹) *</Label>
             <Input
