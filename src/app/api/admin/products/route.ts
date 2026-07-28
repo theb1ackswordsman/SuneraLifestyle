@@ -20,9 +20,10 @@ export async function GET(req: NextRequest) {
     const skip = (page - 1) * limit;
     const search = searchParams.get("search") ?? "";
 
+    const deletedFilter = { $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }] };
     const query = search
-      ? { deletedAt: null, name: { $regex: search, $options: "i" } }
-      : { deletedAt: null };
+      ? { ...deletedFilter, name: { $regex: search, $options: "i" } }
+      : deletedFilter;
 
     const [products, total] = await Promise.all([
       Product.find(query)

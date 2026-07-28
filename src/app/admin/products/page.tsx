@@ -35,16 +35,28 @@ export default function AdminProductsPage() {
   const [toggling, setToggling]     = useState<string | null>(null);
   const [deleteErr, setDeleteErr]   = useState("");
 
-  const load = useCallback(() => {
+  const [fetchErr, setFetchErr]     = useState(false);
+
+  const load = useCallback((isRetry = false) => {
     setLoading(true);
+    setFetchErr(false);
     const q = new URLSearchParams({ page: String(page), ...(search && { search }) });
     fetch(`/api/admin/products?${q}`)
       .then((r) => r.json())
       .then((json) => {
         if (json.success) {
-          setProducts(json.data.products);
-          setTotal(json.data.total);
-          setTotalPages(json.data.totalPages);
+          setProducts(json.data.products ?? []);
+          setTotal(json.data.total ?? 0);
+          setTotalPages(json.data.totalPages ?? 1);
+        } else {
+          setFetchErr(true);
+        }
+      })
+      .catch(() => {
+        if (!isRetry) {
+          setTimeout(() => load(true), 1000);
+        } else {
+          setFetchErr(true);
         }
       })
       .finally(() => setLoading(false));
@@ -84,6 +96,12 @@ export default function AdminProductsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-5">
+      {fetchErr && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between gap-3 shadow-xs">
+          <span>Failed to connect or fetch products. Server may be starting up.</span>
+          <button onClick={() => load(true)} className="shrink-0 font-bold underline hover:text-amber-900">Retry Now</button>
+        </div>
+      )}
       {deleteErr && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
           <span>{deleteErr}</span>

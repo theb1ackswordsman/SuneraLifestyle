@@ -212,7 +212,7 @@ function ImageUploader({ images, onChange, onToast }: {
   );
 }
 
-const COLOR_PRESETS = [
+const DEFAULT_COLOR_PRESETS = [
   { name: "Black",  hex: "#000000" },
   { name: "White",  hex: "#ffffff" },
   { name: "Red",    hex: "#ef4444" },
@@ -222,6 +222,8 @@ const COLOR_PRESETS = [
   { name: "Beige",  hex: "#f5f5dc" },
   { name: "Pink",   hex: "#ec4899" },
   { name: "Yellow", hex: "#eab308" },
+  { name: "Purple", hex: "#a855f7" },
+  { name: "Maroon", hex: "#800000" },
 ];
 
 // ─── Variants Section ─────────────────────────────────────────────────────────
@@ -236,7 +238,9 @@ function VariantsSection({
   uploadedImages?: string[];
 }) {
   const [custom, setCustom] = useState("");
-  const [customColor, setCustomColor] = useState("");
+  const [availableColors, setAvailableColors] = useState<Array<{ name: string; hex: string }>>(DEFAULT_COLOR_PRESETS);
+  const [customColorName, setCustomColorName] = useState("");
+  const [customColorHex, setCustomColorHex] = useState("#1a5c14");
   const [customPriceSizes, setCustomPriceSizes] = useState<Set<string>>(new Set());
 
   const presets = categoryType === "clothing" ? CLOTHING_PRESETS : categoryType === "ayurvedic" ? AYURVEDIC_PRESETS : [];
@@ -246,7 +250,7 @@ function VariantsSection({
     <p className="text-sm text-gray-400 italic">Select a Clothing or Ayurvedic category above to enable size/pack variants.</p>
   );
 
-  function toggle(size: string) {
+  function toggleSize(size: string) {
     const exists = variants.find((v) => v.size === size);
     if (exists) {
       onChange(variants.filter((v) => v.size !== size));
@@ -256,11 +260,22 @@ function VariantsSection({
     }
   }
 
-  function addCustom() {
+  function addCustomSize() {
     const s = custom.trim();
     if (!s || variants.find((v) => v.size === s)) return;
     onChange([...variants, { size: s, stock: "", price: "" }]);
     setCustom("");
+  }
+
+  function addCustomColor() {
+    const name = customColorName.trim();
+    if (!name) return;
+    const existing = availableColors.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    const colorObj = existing ?? { name, hex: customColorHex };
+    if (!existing) {
+      setAvailableColors((prev) => [...prev, colorObj]);
+    }
+    setCustomColorName("");
   }
 
   function update(idx: number, field: keyof VariantRow, value: unknown) {
@@ -284,16 +299,29 @@ function VariantsSection({
     update(idx, "images", nextImgs);
   }
 
+  // Quick helper to duplicate a variant for a new color
+  function duplicateForColor(idx: number, colorObj: { name: string; hex: string }) {
+    const original = variants[idx];
+    const newVariant: VariantRow = {
+      ...original,
+      color: colorObj.name,
+      colorHex: colorObj.hex,
+    };
+    const next = [...variants];
+    next.splice(idx + 1, 0, newVariant);
+    onChange(next);
+  }
+
   return (
-    <div className="space-y-5">
-      {/* Preset toggles */}
+    <div className="space-y-6">
+      {/* Quick Add Sizes */}
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">Quick Add {label}s</p>
         <div className="flex flex-wrap gap-2">
           {presets.map((s) => {
             const active = Boolean(variants.find((v) => v.size === s));
             return (
-              <button key={s} type="button" onClick={() => toggle(s)}
+              <button key={s} type="button" onClick={() => toggleSize(s)}
                 className={cn(
                   "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all",
                   active ? "border-[#1a5c14] bg-[#1a5c14] text-white" : "border-gray-200 bg-white text-gray-600 hover:border-[#1a5c14] hover:text-[#1a5c14]"
@@ -303,21 +331,65 @@ function VariantsSection({
             );
           })}
         </div>
+
+        {/* Custom size input */}
+        <div className="flex gap-2 mt-3">
+          <input
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomSize())}
+            placeholder={categoryType === "clothing" ? "e.g. 46, 4XL…" : "e.g. 750ml, 2kg…"}
+            className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
+          />
+          <button type="button" onClick={addCustomSize}
+            className="flex items-center gap-1.5 rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200 transition-colors">
+            <Plus className="h-4 w-4" /> Add Size
+          </button>
+        </div>
       </div>
 
-      {/* Custom size */}
-      <div className="flex gap-2">
-        <input
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustom())}
-          placeholder={categoryType === "clothing" ? "e.g. 46, 4XL…" : "e.g. 750ml, 2kg…"}
-          className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-[#1a5c14] focus:outline-none focus:ring-1 focus:ring-[#1a5c14]"
-        />
-        <button type="button" onClick={addCustom}
-          className="flex items-center gap-1.5 rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition-colors">
-          <Plus className="h-4 w-4" /> Add
-        </button>
+      {/* Product Colors Section */}
+      <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-700">Add &amp; Select Product Colors</p>
+          <span className="text-[11px] text-gray-400">Click colors or add custom color to assign</span>
+        </div>
+
+        {/* Available Color Pills */}
+        <div className="flex flex-wrap gap-1.5">
+          {availableColors.map((c) => (
+            <div key={c.name} className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-bold text-gray-700 shadow-2xs">
+              <span className="h-3 w-3 rounded-full border border-black/20 shrink-0" style={{ backgroundColor: c.hex }} />
+              <span>{c.name}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Custom Color Creator */}
+        <div className="flex items-center gap-2 pt-1">
+          <input
+            type="color"
+            value={customColorHex}
+            onChange={(e) => setCustomColorHex(e.target.value)}
+            className="h-8 w-8 rounded-lg border border-gray-200 p-0.5 cursor-pointer shrink-0 bg-white"
+            title="Pick custom color"
+          />
+          <input
+            type="text"
+            value={customColorName}
+            onChange={(e) => setCustomColorName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCustomColor())}
+            placeholder="Type color name (e.g. Maroon, Olive, Rose Gold)…"
+            className="flex-1 rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-semibold focus:border-[#1a5c14] focus:outline-none bg-white"
+          />
+          <button
+            type="button"
+            onClick={addCustomColor}
+            className="flex items-center gap-1 rounded-xl bg-[#1a5c14] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#103a0c] transition-colors shrink-0"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Color
+          </button>
+        </div>
       </div>
 
       {/* Variant rows */}
@@ -331,23 +403,34 @@ function VariantsSection({
               return (
                 <div id={`variant-row-${v.size}`} key={idx} className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3 shadow-2xs">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
-                    <span className={cn("text-sm font-black uppercase tracking-wide", hasStockErr ? "text-red-600" : "text-gray-900")}>
-                      {label}: {v.size}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-sm font-black uppercase tracking-wide", hasStockErr ? "text-red-600" : "text-gray-900")}>
+                        {label}: {v.size}
+                      </span>
+                      {v.color && (
+                        <span className="flex items-center gap-1.5 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-700">
+                          {v.colorHex && <span className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: v.colorHex }} />}
+                          {v.color}
+                        </span>
+                      )}
+                    </div>
 
-                    <button type="button" onClick={() => {
-                      onChange(variants.filter((_, i) => i !== idx));
-                      setCustomPriceSizes((prev) => { const next = new Set(prev); next.delete(v.size); return next; });
-                    }}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
-                      <X className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button type="button" onClick={() => {
+                        onChange(variants.filter((_, i) => i !== idx));
+                        setCustomPriceSizes((prev) => { const next = new Set(prev); next.delete(v.size); return next; });
+                      }}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        title="Remove Variant">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
-                    {/* Color Input */}
+                    {/* Color Input & Select */}
                     <div>
-                      <label className="block text-[11px] font-bold uppercase text-gray-400 mb-1">Color Name (Optional)</label>
+                      <label className="block text-[11px] font-bold uppercase text-gray-400 mb-1">Color (Select / Multi-color)</label>
                       <div className="flex items-center gap-1.5">
                         {v.colorHex && (
                           <span className="h-4 w-4 rounded-full border border-gray-300 shrink-0" style={{ backgroundColor: v.colorHex }} />
@@ -357,30 +440,42 @@ function VariantsSection({
                           value={v.color ?? ""}
                           onChange={(e) => {
                             const val = e.target.value;
-                            const matched = COLOR_PRESETS.find((c) => c.name.toLowerCase() === val.trim().toLowerCase());
+                            const matched = availableColors.find((c) => c.name.toLowerCase() === val.trim().toLowerCase());
                             update(idx, "color", val);
                             if (matched) update(idx, "colorHex", matched.hex);
                           }}
-                          placeholder="e.g. Black, Red, Navy"
+                          placeholder="e.g. Black, Red, Maroon"
                           className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold focus:border-[#1a5c14] focus:outline-none"
                         />
                       </div>
-                      {/* Color preset quick pick */}
+
+                      {/* Color Pills Pick */}
                       <div className="flex flex-wrap gap-1 mt-1.5">
-                        {COLOR_PRESETS.map((c) => (
-                          <button
-                            key={c.name}
-                            type="button"
-                            onClick={() => { update(idx, "color", c.name); update(idx, "colorHex", c.hex); }}
-                            className={cn(
-                              "flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-colors",
-                              v.color?.toLowerCase() === c.name.toLowerCase() ? "border-[#1a5c14] bg-green-50 text-[#1a5c14]" : "border-gray-200 text-gray-500 hover:border-gray-300"
-                            )}
-                          >
-                            <span className="h-2.5 w-2.5 rounded-full border border-black/10" style={{ backgroundColor: c.hex }} />
-                            {c.name}
-                          </button>
-                        ))}
+                        {availableColors.map((c) => {
+                          const isSelected = v.color?.toLowerCase() === c.name.toLowerCase();
+                          return (
+                            <button
+                              key={c.name}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  update(idx, "color", "");
+                                  update(idx, "colorHex", "");
+                                } else {
+                                  update(idx, "color", c.name);
+                                  update(idx, "colorHex", c.hex);
+                                }
+                              }}
+                              className={cn(
+                                "flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-colors",
+                                isSelected ? "border-[#1a5c14] bg-green-50 text-[#1a5c14]" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                              )}
+                            >
+                              <span className="h-2.5 w-2.5 rounded-full border border-black/10" style={{ backgroundColor: c.hex }} />
+                              {c.name}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -424,6 +519,23 @@ function VariantsSection({
                           <span className="underline font-bold shrink-0">Set</span>
                         </button>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Add Color Variant button */}
+                  <div className="flex items-center justify-between border-t border-gray-100 pt-2 text-[11px]">
+                    <span className="text-gray-400">Available in another color for {v.size}?</span>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {availableColors.filter((c) => c.name.toLowerCase() !== v.color?.toLowerCase()).slice(0, 5).map((c) => (
+                        <button
+                          key={c.name}
+                          type="button"
+                          onClick={() => duplicateForColor(idx, c)}
+                          className="flex items-center gap-1 text-[10px] font-bold text-[#1a5c14] hover:underline bg-green-50 px-2 py-0.5 rounded-md"
+                        >
+                          <Plus className="h-2.5 w-2.5" /> {v.size} / {c.name}
+                        </button>
+                      ))}
                     </div>
                   </div>
 

@@ -21,31 +21,32 @@ if (!globalThis.__mongooseCache) {
 }
 
 export async function connectDB(): Promise<typeof mongoose> {
-  if (cache.conn) return cache.conn;
+  // 1 = connected. Ensure connection is active before returning
+  if (cache.conn && cache.conn.connection.readyState === 1) return cache.conn;
 
-  if (!MONGODB_URI) {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
     throw new Error("MONGODB_URI is not set — database features are unavailable.");
   }
-  const uri = MONGODB_URI;
 
-  if (!cache.promise) {
+  if (!cache.promise || mongoose.connection.readyState === 0) {
     const opts: mongoose.ConnectOptions = {
       bufferCommands: false,
       maxPoolSize: 10,
-      minPoolSize: 2,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
+      minPoolSize: 1,
+      serverSelectionTimeoutMS: 8000,
+      socketTimeoutMS: 30000,
       family: 4,
     };
 
     cache.promise = mongoose
       .connect(uri, opts)
       .then((m) => {
-        console.warn("[MongoDB] Connected successfully");
         return m;
       })
       .catch((err) => {
         cache.promise = null;
+        cache.conn = null;
         console.error("[MongoDB] Connection failed:", err.message);
         throw err;
       });

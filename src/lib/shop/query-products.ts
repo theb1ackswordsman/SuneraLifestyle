@@ -74,7 +74,10 @@ export async function queryProducts(opts: ProductQuery = {}): Promise<ProductQue
   const limitNum = Math.min(48, Math.max(4, limit));
   const skip = (pageNum - 1) * limitNum;
 
-  const baseMatch: Record<string, unknown> = { isActive: true, deletedAt: null };
+  const baseMatch: Record<string, unknown> = {
+    isActive: true,
+    $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+  };
 
   if (search) baseMatch.$text = { $search: search };
 
