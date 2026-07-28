@@ -26,6 +26,15 @@ const nutritionFactSchema = new Schema(
   { _id: false }
 );
 
+const colorGallerySchema = new Schema(
+  {
+    color: { type: String, required: true, trim: true },
+    colorHex: { type: String, trim: true },
+    images: [{ type: String }],
+  },
+  { _id: true }
+);
+
 export interface IProductDocument extends Document {
   name: string;
   slug: string;
@@ -38,6 +47,7 @@ export interface IProductDocument extends Document {
   barcode?: string;
   images: string[];
   videos?: string[];
+  colorGalleries?: { _id?: string; color: string; colorHex?: string; images: string[] }[];
   variants: mongoose.Types.DocumentArray<mongoose.Types.Subdocument & {
     sku: string; size?: string; color?: string; colorHex?: string;
     flavor?: string; weight?: string; price: number; compareAtPrice?: number;
@@ -86,6 +96,7 @@ const productSchema = new Schema<IProductDocument>(
     barcode: { type: String },
     images: { type: [String], required: true },
     videos: [{ type: String }],
+    colorGalleries: { type: [colorGallerySchema], default: [] },
     variants: { type: [variantSchema], default: [] },
     basePrice: { type: Number, required: true, min: 0 },
     compareAtPrice: { type: Number, min: 0 },

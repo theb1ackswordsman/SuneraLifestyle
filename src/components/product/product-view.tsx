@@ -44,25 +44,39 @@ function deriveBadge(p: ProductDetail | RelatedProduct): "new" | "sale" | "bests
 }
 
 export function ProductView({ product, related }: { product: ProductDetail; related: RelatedProduct[] }) {
-  // Deduplicated colors from variants with assigned images
-  const variantColors = product.variants
-    .filter((v) => v.color)
-    .reduce<Array<{ name: string; hex?: string; images: string[] }>>((acc, v) => {
-      const colorName = String(v.color).trim();
-      const existing = acc.find((x) => x.name.toLowerCase() === colorName.toLowerCase());
-      const vImages = Array.isArray(v.images) ? v.images.filter(Boolean) : [];
-      if (!existing) {
-        acc.push({ name: colorName, hex: v.colorHex, images: vImages });
-      } else if (vImages.length > 0) {
-        vImages.forEach((img) => { if (!existing.images.includes(img)) existing.images.push(img); });
+  // Combine explicit product.colorGalleries and variant color galleries
+  const colorOptions = useMemo(() => {
+    const list: Array<{ name: string; hex?: string; images: string[] }> = [];
+
+    // 1. From product.colorGalleries
+    if (product.colorGalleries && product.colorGalleries.length > 0) {
+      for (const cg of product.colorGalleries) {
+        if (cg.color && !list.some((c) => c.name.toLowerCase() === cg.color.toLowerCase())) {
+          list.push({ name: cg.color, hex: cg.colorHex, images: cg.images ?? [] });
+        }
       }
-      return acc;
-    }, []);
+    }
 
-  const [selectedColor, setSelectedColor] = useState(variantColors[0]?.name ?? "");
+    // 2. From product.variants
+    for (const v of product.variants) {
+      if (v.color) {
+        const colorName = v.color.trim();
+        const existing = list.find((c) => c.name.toLowerCase() === colorName.toLowerCase());
+        const vImages = Array.isArray(v.images) ? v.images.filter(Boolean) : [];
+        if (!existing) {
+          list.push({ name: colorName, hex: v.colorHex, images: vImages });
+        } else if (vImages.length > 0) {
+          vImages.forEach((img) => { if (!existing.images.includes(img)) existing.images.push(img); });
+        }
+      }
+    }
+    return list;
+  }, [product.colorGalleries, product.variants]);
 
-  // Determine active gallery images (if color has specific images, use them; else fallback to product main images)
-  const activeColorObj = variantColors.find((c) => c.name.toLowerCase() === selectedColor.toLowerCase());
+  const [selectedColor, setSelectedColor] = useState(colorOptions[0]?.name ?? "");
+
+  // Determine active gallery images (if selected color has specific images, display them; else fallback to main images)
+  const activeColorObj = colorOptions.find((c) => c.name.toLowerCase() === selectedColor.toLowerCase());
   const activeColorImages = activeColorObj?.images ?? [];
   const gallery = activeColorImages.length > 0 ? activeColorImages : product.images.length > 0 ? product.images : [];
 
@@ -306,11 +320,11 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
             )}
 
             {/* Color selector */}
-            {variantColors.length > 0 && (
+            {colorOptions.length > 0 && (
               <div className="mt-6">
                 <p className="mb-2 text-sm font-semibold">Color: <span className="text-[#1a5c14] font-bold">{selectedColor}</span></p>
                 <div className="flex flex-wrap gap-2.5">
-                  {variantColors.map((c) => {
+                  {colorOptions.map((c) => {
                     const isSelected = selectedColor.toLowerCase() === c.name.toLowerCase();
                     return (
                       <button

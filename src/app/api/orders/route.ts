@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       _id: unknown;
       basePrice: number;
       stock: number;
-      variants?: Array<{ size?: string; price?: number; stock?: number }>;
+      variants?: Array<{ size?: string; color?: string; price?: number; stock?: number }>;
     }>>();
 
   const dbProductMap = new Map(dbProducts.map((p) => [String(p._id), p]));
@@ -71,22 +71,26 @@ export async function POST(req: NextRequest) {
   const validatedItems: Array<{
     productId: string; name: string; image: string; slug: string;
     price: number; compareAtPrice?: number; quantity: number;
-    variant?: { size?: string };
+    variant?: { size?: string; color?: string };
     status: string;
   }> = [];
 
   for (const item of items as Array<{
     productId: string; name: string; image: string; slug: string;
     price: number; compareAtPrice?: number; quantity: number;
-    selectedSize?: string; variant?: { size?: string };
+    selectedSize?: string; selectedColor?: string; variant?: { size?: string; color?: string };
   }>) {
     const dbProduct = dbProductMap.get(item.productId);
     if (!dbProduct)
       return NextResponse.json({ error: `Product not found: ${item.productId}` }, { status: 400 });
 
     const size = item.selectedSize || item.variant?.size;
+    const color = (item as unknown as { selectedColor?: string }).selectedColor || item.variant?.color;
+
     const matchedVariant = dbProduct.variants?.find(
-      (v) => String(v.size ?? "").trim() === String(size ?? "").trim()
+      (v) =>
+        (!size || String(v.size ?? "").trim() === String(size ?? "").trim()) &&
+        (!color || String(v.color ?? "").trim() === String(color ?? "").trim())
     );
     const itemPrice = matchedVariant?.price != null && matchedVariant.price > 0 ? matchedVariant.price : dbProduct.basePrice;
     const itemStock = matchedVariant?.stock != null ? matchedVariant.stock : dbProduct.stock;
@@ -97,7 +101,10 @@ export async function POST(req: NextRequest) {
     validatedItems.push({
       ...item,
       price: itemPrice,
-      ...(size ? { variant: { size } } : {}),
+      variant: {
+        ...(size ? { size } : {}),
+        ...(color ? { color } : {}),
+      },
       status: ORDER_STATUS.CONFIRMED,
     });
   }

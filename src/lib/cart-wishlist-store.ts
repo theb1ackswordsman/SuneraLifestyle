@@ -72,7 +72,7 @@ export function addToCart(productId: string, qty = 1, selectedSize?: string, sel
   if (cart[key]) {
     cart[key].qty += qty;
   } else {
-    cart[key] = { productId, qty, selectedSize: variantTag || undefined, selectedColor };
+    cart[key] = { productId, qty, selectedSize: selectedSize || undefined, selectedColor: selectedColor || undefined };
   }
   writeCart(cart);
 }

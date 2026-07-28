@@ -28,6 +28,12 @@ export interface ProductDetail {
   warnings?: string;
   shippingDetails?: string;
   returnPolicy?: string;
+  colorGalleries?: {
+    _id?: string;
+    color: string;
+    colorHex?: string;
+    images: string[];
+  }[];
   variants: {
     _id: string;
     sku: string;
@@ -129,6 +135,12 @@ export async function queryProductBySlug(slug: string): Promise<ProductDetail | 
     warnings:       raw.warnings ? String(raw.warnings) : undefined,
     shippingDetails: raw.shippingDetails ? String(raw.shippingDetails) : undefined,
     returnPolicy:   raw.returnPolicy ? String(raw.returnPolicy) : undefined,
+    colorGalleries: ((raw.colorGalleries as Record<string, unknown>[]) ?? []).map((cg) => ({
+      _id: String(cg._id ?? ""),
+      color: String(cg.color ?? ""),
+      colorHex: cg.colorHex ? String(cg.colorHex) : undefined,
+      images: Array.isArray(cg.images) ? (cg.images as string[]) : [],
+    })),
     variants,
   };
 }

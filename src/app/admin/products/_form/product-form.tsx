@@ -212,6 +212,129 @@ function ImageUploader({ images, onChange, onToast }: {
   );
 }
 
+interface ColorGalleryRow {
+  color: string;
+  colorHex: string;
+  images: string[];
+}
+
+function ColorGalleriesSection({
+  colorGalleries,
+  onChange,
+  onToast,
+}: {
+  colorGalleries: ColorGalleryRow[];
+  onChange: (cgs: ColorGalleryRow[]) => void;
+  onToast: (msg: string, type: "error" | "success") => void;
+}) {
+  const [newColorName, setNewColorName] = useState("");
+  const [newColorHex, setNewColorHex] = useState("#000000");
+
+  function addColorGallery() {
+    const color = newColorName.trim();
+    if (!color) return;
+    if (colorGalleries.some((cg) => cg.color.toLowerCase() === color.toLowerCase())) {
+      onToast(`Color "${color}" already exists.`, "error");
+      return;
+    }
+    onChange([...colorGalleries, { color, colorHex: newColorHex, images: [] }]);
+    setNewColorName("");
+  }
+
+  function removeColorGallery(idx: number) {
+    onChange(colorGalleries.filter((_, i) => i !== idx));
+  }
+
+  function updateColorGallery(idx: number, field: keyof ColorGalleryRow, val: unknown) {
+    onChange(colorGalleries.map((cg, i) => (i === idx ? { ...cg, [field]: val } : cg)));
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-gray-500">
+        Add product colors and upload specific photo galleries for each color (e.g. Black, Pink, Blue). Customers can click color swatches on the product page to switch galleries instantly without reloading.
+      </p>
+
+      {/* Add new color gallery input */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/50 p-3">
+        <input
+          type="color"
+          value={newColorHex}
+          onChange={(e) => setNewColorHex(e.target.value)}
+          className="h-9 w-9 rounded-lg border border-gray-200 p-0.5 cursor-pointer shrink-0 bg-white"
+          title="Pick color code"
+        />
+        <input
+          type="text"
+          value={newColorName}
+          onChange={(e) => setNewColorName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addColorGallery())}
+          placeholder="Enter Color Name (e.g. Black, Pink, Navy Blue)…"
+          className="flex-1 rounded-xl border border-gray-200 px-3.5 py-2 text-xs font-semibold focus:border-[#1a5c14] focus:outline-none bg-white"
+        />
+        <button
+          type="button"
+          onClick={addColorGallery}
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-[#1a5c14] px-4 py-2 text-xs font-bold text-white hover:bg-[#103a0c] transition-colors shrink-0"
+        >
+          <Plus className="h-4 w-4" /> Add Color Gallery
+        </button>
+      </div>
+
+      {/* List of color galleries */}
+      {colorGalleries.length > 0 && (
+        <div className="space-y-4 pt-2">
+          {colorGalleries.map((cg, idx) => (
+            <div key={idx} className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-5 w-5 rounded-full border border-black/20 shrink-0 shadow-2xs"
+                    style={{ backgroundColor: cg.colorHex || "#000000" }}
+                  />
+                  <input
+                    type="text"
+                    value={cg.color}
+                    onChange={(e) => updateColorGallery(idx, "color", e.target.value)}
+                    className="font-extrabold text-sm text-gray-900 border-b border-dashed border-gray-300 focus:border-[#1a5c14] focus:outline-none px-1"
+                  />
+                  <input
+                    type="color"
+                    value={cg.colorHex || "#000000"}
+                    onChange={(e) => updateColorGallery(idx, "colorHex", e.target.value)}
+                    className="h-6 w-6 rounded-md border border-gray-200 p-0.5 cursor-pointer shrink-0 bg-white"
+                    title="Change color hex"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeColorGallery(idx)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  title="Remove Color"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Upload photos for this color */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                  Upload Images for &quot;{cg.color}&quot;
+                </p>
+                <ImageUploader
+                  images={cg.images}
+                  onChange={(imgs) => updateColorGallery(idx, "images", imgs)}
+                  onToast={onToast}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const DEFAULT_COLOR_PRESETS = [
   { name: "Black",  hex: "#000000" },
   { name: "White",  hex: "#ffffff" },
@@ -604,6 +727,7 @@ export default function ProductForm({ productId }: Props) {
 
   const [form, setForm]             = useState<FormData>(EMPTY);
   const [images, setImages]         = useState<string[]>([]);
+  const [colorGalleries, setColorGalleries] = useState<ColorGalleryRow[]>([]);
   const [variants, setVariants]     = useState<VariantRow[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving]         = useState(false);
@@ -668,6 +792,11 @@ export default function ProductForm({ productId }: Props) {
         isNewArrival:     p.isNewArrival ?? false,
       });
       setImages(p.images ?? []);
+      setColorGalleries((p.colorGalleries ?? []).map((cg: { color: string; colorHex?: string; images?: string[] }) => ({
+        color:    cg.color ?? "",
+        colorHex: cg.colorHex ?? "#000000",
+        images:   cg.images ?? [],
+      })));
       setVariants((p.variants ?? [])
         .map((v: { size?: string; color?: string; colorHex?: string; stock: number; price?: number; images?: string[] }) => ({
           size:     v.size ?? "",
@@ -684,7 +813,7 @@ export default function ProductForm({ productId }: Props) {
 
   useEffect(() => { loadProduct(); }, [loadProduct]);
 
-  function set<K extends keyof FormData>(key: K, value: FormData[K]) {
+  function set(key: keyof FormData, value: FormData[keyof FormData]) {
     setForm((f) => ({ ...f, [key]: value }));
     clearError(key as string);
   }
@@ -747,6 +876,13 @@ export default function ProductForm({ productId }: Props) {
         benefits:         form.benefits.split("\n").map((s) => s.trim()).filter(Boolean),
         ingredients:      form.ingredients.split("\n").map((s) => s.trim()).filter(Boolean),
         images,
+        colorGalleries: colorGalleries
+          .filter((cg) => cg.color.trim())
+          .map((cg) => ({
+            color:    cg.color.trim(),
+            colorHex: cg.colorHex?.trim() || undefined,
+            images:   cg.images.filter(Boolean),
+          })),
         variants:         variants.map((v) => ({
           sku:      `${form.sku.trim()}-${(v.color ? v.color + "-" : "") + v.size}`.replace(/\s/g, ""),
           size:     v.size || undefined,
@@ -921,12 +1057,21 @@ export default function ProductForm({ productId }: Props) {
       </Section>
 
       {/* Images */}
-      <Section icon={ImageIcon} title="Product Images">
-        <p className="text-xs text-gray-400">Upload multiple images. Hover any image to set it as main or remove it.</p>
+      <Section icon={ImageIcon} title="Product Main Images">
+        <p className="text-xs text-gray-400">Upload default product images. Hover any image to set it as main or remove it.</p>
         <div id="field-images">
           <ImageUploader images={images} onChange={(imgs) => { setImages(imgs); clearError("images"); }} onToast={showToast} />
           {errors.images && <FieldError msg={errors.images} />}
         </div>
+      </Section>
+
+      {/* Color Galleries (Optional) */}
+      <Section icon={Sparkles} title="Color Galleries (Optional)">
+        <ColorGalleriesSection
+          colorGalleries={colorGalleries}
+          onChange={setColorGalleries}
+          onToast={showToast}
+        />
       </Section>
 
       {/* Sizes / Variants */}
