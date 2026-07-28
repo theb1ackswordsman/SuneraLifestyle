@@ -16,7 +16,7 @@ interface OrderItem {
   price: number;
   quantity: number;
   status?: string;
-  variant?: { size?: string };
+  variant?: { size?: string; color?: string };
 }
 
 interface Order {
@@ -471,6 +471,11 @@ export default function AdminOrdersPage() {
                           {item.variant?.size && (
                             <span className="font-semibold text-[#1a5c14] bg-[#1a5c14]/10 border border-[#1a5c14]/20 px-1.5 py-0.5 rounded text-[11px]">
                               {/^\d+\s*(ml|L|g|kg)$/i.test(item.variant.size) ? "Pack" : "Size"}: {item.variant.size}
+                            </span>
+                          )}
+                          {item.variant?.color && (
+                            <span className="font-semibold text-[#1a5c14] bg-[#1a5c14]/10 border border-[#1a5c14]/20 px-1.5 py-0.5 rounded text-[11px]">
+                              Color: {item.variant.color}
                             </span>
                           )}
                         </div>

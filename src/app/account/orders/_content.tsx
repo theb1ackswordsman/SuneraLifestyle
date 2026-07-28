@@ -608,13 +608,25 @@ function OrderCard({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold line-clamp-1">{item.name}</p>
-              {item.variant?.size && (
-                <p className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1">
-                  <span>{/^\d+\s*(ml|L|g|kg)$/i.test(item.variant.size) ? "Pack Size" : "Size"}:</span>
-                  <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.5 rounded text-[11px]">
-                    {item.variant.size}
-                  </span>
-                </p>
+              {(item.variant?.size || item.variant?.color) && (
+                <div className="text-xs text-muted-foreground mt-0.5 font-medium flex flex-wrap items-center gap-1.5">
+                  {item.variant?.size && (
+                    <span className="flex items-center gap-1">
+                      <span>{/^\d+\s*(ml|L|g|kg)$/i.test(item.variant.size) ? "Pack Size" : "Size"}:</span>
+                      <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.5 rounded text-[11px]">
+                        {item.variant.size}
+                      </span>
+                    </span>
+                  )}
+                  {item.variant?.color && (
+                    <span className="flex items-center gap-1">
+                      <span>Color:</span>
+                      <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.5 rounded text-[11px]">
+                        {item.variant.color}
+                      </span>
+                    </span>
+                  )}
+                </div>
               )}
               <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
             </div>

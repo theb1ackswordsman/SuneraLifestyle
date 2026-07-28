@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -76,7 +76,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   const [selectedColor, setSelectedColor] = useState(colorOptions[0]?.name ?? "");
 
   // Determine active gallery images (if selected color has specific images, display them; else fallback to main images)
-  const activeColorObj = colorOptions.find((c) => c.name.toLowerCase() === selectedColor.toLowerCase());
+  const activeColorObj = colorOptions.find((c: { name: string; hex?: string; images: string[] }) => c.name.toLowerCase() === selectedColor.toLowerCase());
   const activeColorImages = activeColorObj?.images ?? [];
   const gallery = activeColorImages.length > 0 ? activeColorImages : product.images.length > 0 ? product.images : [];
 
@@ -203,7 +203,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
             {/* Thumbnails */}
             {gallery.length > 1 && (
               <div className="grid grid-cols-4 gap-3">
-                {gallery.map((src, i) => (
+                {gallery.map((src: string, i: number) => (
                   <button
                     key={i}
                     onClick={() => setActiveImg(i)}
@@ -324,7 +324,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               <div className="mt-6">
                 <p className="mb-2 text-sm font-semibold">Color: <span className="text-[#1a5c14] font-bold">{selectedColor}</span></p>
                 <div className="flex flex-wrap gap-2.5">
-                  {colorOptions.map((c) => {
+                  {colorOptions.map((c: { name: string; hex?: string; images: string[] }) => {
                     const isSelected = selectedColor.toLowerCase() === c.name.toLowerCase();
                     return (
                       <button

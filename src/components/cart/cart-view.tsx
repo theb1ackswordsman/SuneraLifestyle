@@ -33,6 +33,7 @@ interface Line extends CartProduct {
   key: string;
   qty: number;
   selectedSize?: string;
+  selectedColor?: string;
 }
 
 const FREE_SHIP_THRESHOLD = 999;
@@ -190,13 +191,25 @@ export function CartView() {
                           >
                             {l.name}
                           </Link>
-                          {l.selectedSize && (
-                            <p className="text-xs text-muted-foreground mt-1 font-medium flex items-center gap-1">
-                              <span>{/^\d+\s*(ml|L|g|kg)$/i.test(l.selectedSize) ? "Pack Size" : "Size"}:</span>
-                              <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.5 rounded-md text-[11px]">
-                                {l.selectedSize}
-                              </span>
-                            </p>
+                          {(l.selectedSize || l.selectedColor) && (
+                            <div className="text-xs text-muted-foreground mt-1 font-medium flex flex-wrap items-center gap-1.5">
+                              {l.selectedSize && (
+                                <span className="flex items-center gap-1">
+                                  <span>{/^\d+\s*(ml|L|g|kg)$/i.test(l.selectedSize) ? "Pack Size" : "Size"}:</span>
+                                  <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.5 rounded-md text-[11px]">
+                                    {l.selectedSize}
+                                  </span>
+                                </span>
+                              )}
+                              {l.selectedColor && (
+                                <span className="flex items-center gap-1">
+                                  <span>Color:</span>
+                                  <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.5 rounded-md text-[11px]">
+                                    {l.selectedColor}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                         <button

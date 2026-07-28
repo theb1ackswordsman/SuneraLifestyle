@@ -27,7 +27,7 @@ interface CartProduct {
   images: string[]; stock: number;
   variants?: ProductVariant[];
 }
-interface Line extends CartProduct { key?: string; qty: number; selectedSize?: string }
+interface Line extends CartProduct { key?: string; qty: number; selectedSize?: string; selectedColor?: string }
 
 interface SavedAddress {
   _id: string; label: string; name: string; phone: string;
@@ -914,13 +914,25 @@ export function CheckoutContent({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold leading-snug line-clamp-2">{l.name}</p>
-                          {l.selectedSize && (
-                            <p className="mt-0.5 text-[11px] text-muted-foreground font-medium flex items-center gap-1">
-                              <span>{/^\d+\s*(ml|L|g|kg)$/i.test(l.selectedSize) ? "Pack Size" : "Size"}:</span>
-                              <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.2 rounded text-[10px]">
-                                {l.selectedSize}
-                              </span>
-                            </p>
+                          {(l.selectedSize || l.selectedColor) && (
+                            <div className="mt-0.5 text-[11px] text-muted-foreground font-medium flex flex-wrap items-center gap-1.5">
+                              {l.selectedSize && (
+                                <span className="flex items-center gap-1">
+                                  <span>{/^\d+\s*(ml|L|g|kg)$/i.test(l.selectedSize) ? "Pack Size" : "Size"}:</span>
+                                  <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.2 rounded text-[10px]">
+                                    {l.selectedSize}
+                                  </span>
+                                </span>
+                              )}
+                              {l.selectedColor && (
+                                <span className="flex items-center gap-1">
+                                  <span>Color:</span>
+                                  <span className="font-semibold text-foreground bg-muted/60 border border-border px-1.5 py-0.2 rounded text-[10px]">
+                                    {l.selectedColor}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
                           )}
                           <p className="mt-0.5 text-xs text-muted-foreground">{formatPrice(l.basePrice)} each</p>
                         </div>
