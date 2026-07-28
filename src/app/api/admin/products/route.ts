@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/connection";
 import { Product } from "@/models/product.model";
+import "@/models/category.model"; // Ensure Category schema is registered for populate()
 import { ok, created, forbidden, badRequest, handleApiError } from "@/lib/api/response";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +16,15 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1"));
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = 20;
     const skip = (page - 1) * limit;
     const search = searchParams.get("search") ?? "";
 
-    const deletedFilter = { $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }] };
-    const query = search
-      ? { ...deletedFilter, name: { $regex: search, $options: "i" } }
-      : deletedFilter;
+    const query: Record<string, unknown> = { deletedAt: null };
+    if (search.trim()) {
+      query.name = { $regex: search.trim(), $options: "i" };
+    }
 
     const [products, total] = await Promise.all([
       Product.find(query)

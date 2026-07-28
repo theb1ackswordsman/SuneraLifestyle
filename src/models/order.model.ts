@@ -1,4 +1,6 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
+import "@/models/user.model";
+import "@/models/product.model";
 import { ORDER_STATUS, PAYMENT_STATUS, PAYMENT_METHODS, OrderStatus, PaymentStatus, PaymentMethod } from "@/constants";
 
 const addressEmbedSchema = new Schema(

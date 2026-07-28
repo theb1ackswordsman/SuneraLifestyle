@@ -1,4 +1,5 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
+import "@/models/category.model";
 
 const variantSchema = new Schema(
   {
