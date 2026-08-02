@@ -31,6 +31,7 @@ const colorGallerySchema = new Schema(
     color: { type: String, required: true, trim: true },
     colorHex: { type: String, trim: true },
     images: [{ type: String }],
+    isDefault: { type: Boolean, default: false },
   },
   { _id: true }
 );
@@ -47,7 +48,7 @@ export interface IProductDocument extends Document {
   barcode?: string;
   images: string[];
   videos?: string[];
-  colorGalleries?: { _id?: string; color: string; colorHex?: string; images: string[] }[];
+  colorGalleries?: { _id?: string; color: string; colorHex?: string; images: string[]; isDefault?: boolean }[];
   variants: mongoose.Types.DocumentArray<mongoose.Types.Subdocument & {
     sku: string; size?: string; color?: string; colorHex?: string;
     flavor?: string; weight?: string; price: number; compareAtPrice?: number;

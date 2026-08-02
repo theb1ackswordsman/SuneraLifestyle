@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Resend verification email
+// Resend a verification OTP
 export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
@@ -51,26 +51,27 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
     const user = await User.findOne({ email: email.toLowerCase() }).select(
-      "+emailVerificationToken +emailVerificationExpiry"
+      "+emailOtp +emailOtpExpiry +emailOtpAttempts"
     );
 
     // Always return success to prevent email enumeration
     if (!user || user.isEmailVerified) {
-      return ok(null, "If an unverified account exists, a new link has been sent.");
+      return ok(null, "If an unverified account exists, a new code has been sent.");
     }
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    user.emailVerificationToken = crypto.createHash("sha256").update(rawToken).digest("hex");
-    user.emailVerificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const { assignEmailOtp } = await import("@/lib/auth/otp");
+    const { verifyOtpTemplate } = await import("@/lib/email/templates");
+
+    const otp = assignEmailOtp(user);
     await user.save();
 
     sendEmail({
       to: user.email,
-      subject: "Verify your SunEra account",
-      html: (await import("@/lib/email/templates")).verifyEmailTemplate(user.name, rawToken),
+      subject: `${otp} is your SunEra verification code`,
+      html: verifyOtpTemplate(user.name, otp),
     }).catch(console.error);
 
-    return ok(null, "Verification email sent. Please check your inbox.");
+    return ok(null, "A new verification code has been sent. Please check your inbox.");
   } catch (err) {
     return handleApiError(err);
   }

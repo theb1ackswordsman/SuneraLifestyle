@@ -3,10 +3,10 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Star, Heart, ShoppingBag, Check, Truck, RefreshCw, ShieldCheck,
-  Minus, Plus, ChevronRight, BellRing,
+  Minus, Plus, ChevronRight, ChevronLeft, BellRing, Maximize2, X,
 } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,37 @@ function Stars({ rating, className }: { rating: number; className?: string }) {
 
 const TABS = ["Description", "Highlights"] as const;
 
+const COLOR_HEX_MAP: Record<string, string> = {
+  black: "#000000",
+  white: "#ffffff",
+  red: "#ef4444",
+  navy: "#1e3a8a",
+  "navy blue": "#1e3a8a",
+  blue: "#3b82f6",
+  green: "#10b981",
+  beige: "#f5f5dc",
+  pink: "#ec4899",
+  yellow: "#eab308",
+  purple: "#a855f7",
+  maroon: "#800000",
+  orange: "#f97316",
+  gray: "#6b7280",
+  grey: "#6b7280",
+  gold: "#ffd700",
+  silver: "#c0c0c0",
+  brown: "#78350f",
+  olive: "#808000",
+  teal: "#008080",
+};
+
+function resolveColorHex(colorName: string, explicitHex?: string): string {
+  if (explicitHex && explicitHex.trim() && explicitHex !== "#000000" && explicitHex !== "#3b82f6") {
+    return explicitHex;
+  }
+  const key = colorName.trim().toLowerCase();
+  return COLOR_HEX_MAP[key] ?? explicitHex ?? "#000000";
+}
+
 function deriveBadge(p: ProductDetail | RelatedProduct): "new" | "sale" | "bestseller" | undefined {
   if (p.isBestSeller) return "bestseller";
   if (p.isNewArrival) return "new";
@@ -46,13 +77,18 @@ function deriveBadge(p: ProductDetail | RelatedProduct): "new" | "sale" | "bests
 export function ProductView({ product, related }: { product: ProductDetail; related: RelatedProduct[] }) {
   // Combine explicit product.colorGalleries and variant color galleries
   const colorOptions = useMemo(() => {
-    const list: Array<{ name: string; hex?: string; images: string[] }> = [];
+    const list: Array<{ name: string; hex?: string; images: string[]; price?: number; isDefault?: boolean }> = [];
 
     // 1. From product.colorGalleries
     if (product.colorGalleries && product.colorGalleries.length > 0) {
       for (const cg of product.colorGalleries) {
-        if (cg.color && !list.some((c) => c.name.toLowerCase() === cg.color.toLowerCase())) {
-          list.push({ name: cg.color, hex: cg.colorHex, images: cg.images ?? [] });
+        if (cg.color && !list.some((c) => c.name.toLowerCase() === cg.color.trim().toLowerCase())) {
+          list.push({
+            name: cg.color.trim(),
+            hex: resolveColorHex(cg.color, cg.colorHex),
+            images: cg.images ?? [],
+            isDefault: cg.isDefault,
+          });
         }
       }
     }
@@ -64,21 +100,60 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
         const existing = list.find((c) => c.name.toLowerCase() === colorName.toLowerCase());
         const vImages = Array.isArray(v.images) ? v.images.filter(Boolean) : [];
         if (!existing) {
-          list.push({ name: colorName, hex: v.colorHex, images: vImages });
-        } else if (vImages.length > 0) {
-          vImages.forEach((img) => { if (!existing.images.includes(img)) existing.images.push(img); });
+          list.push({
+            name: colorName,
+            hex: resolveColorHex(colorName, v.colorHex),
+            images: vImages,
+            price: v.price,
+          });
+        } else {
+          if (v.price && !existing.price) existing.price = v.price;
+          if (vImages.length > 0) {
+            vImages.forEach((img) => { if (!existing.images.includes(img)) existing.images.push(img); });
+          }
         }
       }
     }
     return list;
   }, [product.colorGalleries, product.variants]);
 
-  const [selectedColor, setSelectedColor] = useState(colorOptions[0]?.name ?? "");
+  const defaultColorObj = colorOptions.find((c) => c.isDefault);
+  const initialColor = defaultColorObj?.name ?? colorOptions[0]?.name ?? "";
+  const [selectedColor, setSelectedColor] = useState(initialColor);
 
-  // Determine active gallery images (if selected color has specific images, display them; else fallback to main images)
-  const activeColorObj = colorOptions.find((c: { name: string; hex?: string; images: string[] }) => c.name.toLowerCase() === selectedColor.toLowerCase());
+  // 1. Build unified allImages list (Main product images + all color gallery images + variant images)
+  const allImages = useMemo(() => {
+    const imgs: string[] = [];
+    if (product.images && product.images.length > 0) {
+      product.images.forEach((img) => {
+        if (img && !imgs.includes(img)) imgs.push(img);
+      });
+    }
+    for (const color of colorOptions) {
+      for (const img of color.images) {
+        if (img && !imgs.includes(img)) imgs.push(img);
+      }
+    }
+    return imgs.length > 0 ? imgs : ["/placeholder.jpg"];
+  }, [product.images, colorOptions]);
+
+  // 2. Map image URL to Color Name
+  const imageToColorMap = useMemo(() => {
+    const map = new Map<string, { colorName: string; price?: number }>();
+    for (const color of colorOptions) {
+      for (const img of color.images) {
+        if (img && !map.has(img)) {
+          map.set(img, { colorName: color.name, price: color.price });
+        }
+      }
+    }
+    return map;
+  }, [colorOptions]);
+
+  // Active color images or allImages
+  const activeColorObj = colorOptions.find((c: { name: string; hex?: string; images: string[]; price?: number }) => c.name.toLowerCase() === selectedColor.toLowerCase());
   const activeColorImages = activeColorObj?.images ?? [];
-  const gallery = activeColorImages.length > 0 ? activeColorImages : product.images.length > 0 ? product.images : [];
+  const gallery = allImages;
 
   // Deduplicated sizes for the selected color (or all sizes)
   const availableVariants = selectedColor
@@ -106,6 +181,18 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   const { user, requireAuth } = useRequireAuth();
 
   const [activeImg, setActiveImg] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsFullscreen(false);
+      if (e.key === "ArrowLeft") setActiveImg((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
+      if (e.key === "ArrowRight") setActiveImg((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen, gallery.length]);
   const [selectedSize, setSelectedSize] = useState(variantSizes[0]?.size ?? "");
   const [qty, setQty] = useState(1);
   const [wishlisted, setWishlisted] = useState(false);
@@ -115,19 +202,44 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
   // Hydrate wishlist state from localStorage after mount
   useEffect(() => { setWishlisted(isWishlisted(String(product._id))); }, [product._id]);
 
-  // Handle color change and reset active image index to 0
+  // Handle clicking a thumbnail on the left side
+  const handleThumbnailClick = (index: number) => {
+    setActiveImg(index);
+    const clickedImg = gallery[index];
+    if (clickedImg && imageToColorMap.has(clickedImg)) {
+      const info = imageToColorMap.get(clickedImg);
+      if (info?.colorName && info.colorName.toLowerCase() !== selectedColor.toLowerCase()) {
+        setSelectedColor(info.colorName);
+        const newColorVariants = product.variants.filter((v) => v.color?.toLowerCase() === info.colorName.toLowerCase());
+        const firstSize = newColorVariants.find((v) => v.size)?.size;
+        if (firstSize) setSelectedSize(firstSize);
+      }
+    }
+  };
+
+  // Handle clicking a color swatch
   const handleColorChange = (colorName: string) => {
     setSelectedColor(colorName);
-    setActiveImg(0);
-    // Auto-select first available size for this color
+    const colorObj = colorOptions.find((c) => c.name.toLowerCase() === colorName.toLowerCase());
+    if (colorObj && colorObj.images.length > 0) {
+      const firstImg = colorObj.images[0];
+      const imgIdx = gallery.indexOf(firstImg);
+      if (imgIdx !== -1) setActiveImg(imgIdx);
+    }
     const newColorVariants = product.variants.filter((v) => v.color?.toLowerCase() === colorName.toLowerCase());
     const firstSize = newColorVariants.find((v) => v.size)?.size;
     if (firstSize) setSelectedSize(firstSize);
   };
 
-  // Price from selected variant (if it has an override), else base price
+  // Calculate display price based on active size / color variant
   const activeVariant = availableVariants.find((v) => String(v.size ?? "").trim() === String(selectedSize ?? "").trim());
-  const displayPrice = activeVariant?.price != null && activeVariant.price > 0 ? activeVariant.price : product.basePrice;
+  const activeColorObjPrice = colorOptions.find((c) => c.name.toLowerCase() === selectedColor.toLowerCase())?.price;
+  const displayPrice =
+    activeVariant?.price != null && activeVariant.price > 0
+      ? activeVariant.price
+      : activeColorObjPrice != null && activeColorObjPrice > 0
+      ? activeColorObjPrice
+      : product.basePrice;
 
   const discount =
     product.compareAtPrice && product.compareAtPrice > displayPrice
@@ -174,12 +286,30 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               key={activeImg}
               initial={{ opacity: 0.4 }}
               animate={{ opacity: 1 }}
-              className="relative aspect-square overflow-hidden rounded-2xl bg-muted"
+              onClick={() => setIsFullscreen(true)}
+              className="relative aspect-square overflow-hidden rounded-2xl bg-muted cursor-zoom-in group"
             >
               {gallery[activeImg] && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={gallery[activeImg]} alt={product.name} className="h-full w-full object-cover" />
+                <motion.img
+                  key={`${selectedColor}-${activeImg}-${gallery[activeImg]}`}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  src={gallery[activeImg]}
+                  alt={product.name}
+                  className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
               )}
+
+              {/* Fullscreen zoom button */}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setIsFullscreen(true); }}
+                className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md opacity-80 hover:opacity-100 transition-opacity shadow-md"
+                title="Open Fullscreen"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
 
               {/* Out of Stock overlay ribbon */}
               {outOfStock && (
@@ -200,22 +330,34 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               )}
             </motion.div>
 
-            {/* Thumbnails */}
+            {/* Thumbnails - Shows all product and color images */}
             {gallery.length > 1 && (
-              <div className="grid grid-cols-4 gap-3">
-                {gallery.map((src: string, i: number) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveImg(i)}
-                    className={cn(
-                      "relative aspect-square overflow-hidden rounded-xl bg-muted ring-2 transition-all",
-                      i === activeImg ? "ring-brand-emerald" : "ring-transparent hover:ring-border"
-                    )}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt={`${product.name} view ${i + 1}`} className="h-full w-full object-cover" />
-                  </button>
-                ))}
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                {gallery.map((src: string, i: number) => {
+                  const imgColorObj = imageToColorMap.get(src);
+                  const isSelectedImg = i === activeImg;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => handleThumbnailClick(i)}
+                      className={cn(
+                        "relative aspect-square overflow-hidden rounded-xl bg-muted ring-2 transition-all group",
+                        isSelectedImg
+                          ? "ring-[#1a5c14] ring-offset-1"
+                          : "ring-transparent hover:ring-border opacity-75 hover:opacity-100"
+                      )}
+                      title={imgColorObj?.colorName ? `View ${imgColorObj.colorName} photo` : `View photo ${i + 1}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt={`${product.name} view ${i + 1}`} className="h-full w-full object-cover" />
+                      {imgColorObj?.colorName && (
+                        <span className="absolute bottom-1 right-1 flex items-center justify-center rounded-full bg-black/70 px-1 py-0.5 text-[8px] font-bold text-white backdrop-blur-2xs">
+                          {imgColorObj.colorName.slice(0, 3)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -324,7 +466,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
               <div className="mt-6">
                 <p className="mb-2 text-sm font-semibold">Color: <span className="text-[#1a5c14] font-bold">{selectedColor}</span></p>
                 <div className="flex flex-wrap gap-2.5">
-                  {colorOptions.map((c: { name: string; hex?: string; images: string[] }) => {
+                  {colorOptions.map((c: { name: string; hex?: string; images: string[]; price?: number }) => {
                     const isSelected = selectedColor.toLowerCase() === c.name.toLowerCase();
                     return (
                       <button
@@ -475,6 +617,79 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
           </div>
         )}
       </div>
+
+      {/* Fullscreen Lightbox Modal (Mobile & Laptop) */}
+      <AnimatePresence>
+        {isFullscreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-4 sm:p-8 select-none"
+            onClick={() => setIsFullscreen(false)}
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(false)}
+              className="absolute top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/30 transition-colors shadow-lg"
+              title="Close (Esc)"
+            >
+              <X className="h-6 w-6" />
+            </button>
+
+            {/* Prev Image Button */}
+            {gallery.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveImg((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
+                }}
+                className="absolute left-3 sm:left-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/30 transition-colors shadow-lg"
+                title="Previous Image"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            )}
+
+            {/* Fullscreen High-Res Image View */}
+            <div
+              className="relative max-h-[85vh] max-w-[90vw] overflow-hidden rounded-2xl flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={gallery[activeImg]}
+                alt={product.name}
+                className="max-h-[85vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
+              />
+            </div>
+
+            {/* Next Image Button */}
+            {gallery.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveImg((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
+                }}
+                className="absolute right-3 sm:right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/30 transition-colors shadow-lg"
+                title="Next Image"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            )}
+
+            {/* Footer details inside modal */}
+            <div className="absolute bottom-4 left-0 right-0 text-center text-xs font-semibold text-white/80 flex items-center justify-center gap-3">
+              <span className="truncate max-w-[200px] sm:max-w-none">{product.name}</span>
+              {selectedColor && <span>· Color: <strong className="text-white">{selectedColor}</strong></span>}
+              <span>· {activeImg + 1} / {gallery.length}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

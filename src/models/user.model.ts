@@ -27,6 +27,9 @@ export interface IUserDocument extends Document {
   googleId?: string;
   emailVerificationToken?: string;
   emailVerificationExpiry?: Date;
+  emailOtp?: string;
+  emailOtpExpiry?: Date;
+  emailOtpAttempts?: number;
   passwordResetToken?: string;
   passwordResetExpiry?: Date;
   refreshTokens: string[];
@@ -81,6 +84,9 @@ const userSchema = new Schema<IUserDocument>(
     googleId: { type: String, sparse: true },
     emailVerificationToken: { type: String, select: false },
     emailVerificationExpiry: { type: Date, select: false },
+    emailOtp: { type: String, select: false },
+    emailOtpExpiry: { type: Date, select: false },
+    emailOtpAttempts: { type: Number, default: 0, select: false },
     passwordResetToken: { type: String, select: false },
     passwordResetExpiry: { type: Date, select: false },
     refreshTokens: { type: [String], default: [], select: false },
@@ -112,6 +118,7 @@ const userSchema = new Schema<IUserDocument>(
         delete ret.password;
         delete ret.refreshTokens;
         delete ret.emailVerificationToken;
+        delete ret.emailOtp;
         delete ret.passwordResetToken;
         delete ret.__v;
         return ret;

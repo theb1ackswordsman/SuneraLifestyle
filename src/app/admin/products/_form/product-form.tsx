@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, Check, ArrowLeft, Sparkles, ImageIcon,
   Package, DollarSign, AlignLeft, BadgeCheck,
-  Upload, X, AlertCircle, CheckCircle2, Layers, Plus,
+  Upload, X, AlertCircle, CheckCircle2, Layers, Plus, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -216,6 +216,7 @@ interface ColorGalleryRow {
   color: string;
   colorHex: string;
   images: string[];
+  isDefault?: boolean;
 }
 
 function ColorGalleriesSection({
@@ -237,12 +238,19 @@ function ColorGalleriesSection({
       onToast(`Color "${color}" already exists.`, "error");
       return;
     }
-    onChange([...colorGalleries, { color, colorHex: newColorHex, images: [] }]);
+    const preset = DEFAULT_COLOR_PRESETS.find((p) => p.name.toLowerCase() === color.toLowerCase());
+    const hex = preset ? preset.hex : newColorHex !== "#000000" ? newColorHex : "#000000";
+    const isFirst = colorGalleries.length === 0;
+    onChange([...colorGalleries, { color, colorHex: hex, images: [], isDefault: isFirst }]);
     setNewColorName("");
   }
 
   function removeColorGallery(idx: number) {
-    onChange(colorGalleries.filter((_, i) => i !== idx));
+    const next = colorGalleries.filter((_, i) => i !== idx);
+    if (next.length > 0 && !next.some((c) => c.isDefault)) {
+      next[0].isDefault = true;
+    }
+    onChange(next);
   }
 
   function updateColorGallery(idx: number, field: keyof ColorGalleryRow, val: unknown) {
@@ -306,14 +314,37 @@ function ColorGalleriesSection({
                     title="Change color hex"
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeColorGallery(idx)}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                  title="Remove Color"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(
+                        colorGalleries.map((c, i) => ({
+                          ...c,
+                          isDefault: i === idx,
+                        }))
+                      );
+                    }}
+                    className={cn(
+                      "flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition-all",
+                      cg.isDefault
+                        ? "bg-[#1a5c14] text-white shadow-2xs"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    )}
+                    title="Set as Default Color"
+                  >
+                    <Star className={cn("h-3.5 w-3.5", cg.isDefault ? "fill-white" : "")} />
+                    <span>{cg.isDefault ? "Default Color" : "Make Default"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeColorGallery(idx)}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                    title="Remove Color"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Upload photos for this color */}
@@ -882,6 +913,7 @@ export default function ProductForm({ productId }: Props) {
             color:    cg.color.trim(),
             colorHex: cg.colorHex?.trim() || undefined,
             images:   cg.images.filter(Boolean),
+            isDefault: Boolean(cg.isDefault),
           })),
         variants:         variants.map((v) => ({
           sku:      `${form.sku.trim()}-${(v.color ? v.color + "-" : "") + v.size}`.replace(/\s/g, ""),

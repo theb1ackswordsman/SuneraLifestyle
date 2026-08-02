@@ -32,8 +32,6 @@ const wrapper = (content: string) => `
           <td style="border-top:1px solid #f0f0f0;padding:24px 40px;text-align:center;">
             <p style="margin:0;color:#9ca3af;font-size:12px;">
               © ${new Date().getFullYear()} SunEra Lifestyle. All rights reserved.<br/>
-              <a href="${BASE_URL}/unsubscribe" style="color:#1a5c14;text-decoration:none;">Unsubscribe</a>
-              &nbsp;·&nbsp;
               <a href="${BASE_URL}/privacy-policy" style="color:#1a5c14;text-decoration:none;">Privacy Policy</a>
             </p>
           </td>
@@ -65,6 +63,19 @@ export function verifyEmailTemplate(name: string, token: string): string {
         <span style="color:#1a5c14;font-family:monospace;font-size:11px;">${link}</span>
       </p>
     </div>
+  `);
+}
+
+export function verifyOtpTemplate(name: string, otp: string): string {
+  return wrapper(`
+    <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0a0a0a;">Verify Your Email</h2>
+    <p style="margin:0 0 8px;color:#4b5563;font-size:15px;line-height:1.6;">
+      Hi <strong>${name}</strong>, welcome to SunEra Lifestyle! Enter the code below on the website to activate your account.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <div style="display:inline-block;background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:18px 30px;font-size:36px;font-weight:900;letter-spacing:12px;color:#0a0a0a;font-family:'Courier New',monospace;">${otp}</div>
+    </div>
+    ${note("This code expires in <strong>10 minutes</strong>. If you didn't create an account, you can safely ignore this email.")}
   `);
 }
 

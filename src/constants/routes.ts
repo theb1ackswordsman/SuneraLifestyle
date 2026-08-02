@@ -73,6 +73,7 @@ export const ROUTES = {
       FORGOT_PASSWORD: "/api/auth/forgot-password",
       RESET_PASSWORD: "/api/auth/reset-password",
       VERIFY_EMAIL: "/api/auth/verify-email",
+      VERIFY_OTP: "/api/auth/verify-otp",
       ADMIN_VERIFY: "/api/auth/admin-verify",
     },
     PRODUCTS: "/api/products",

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema, type RegisterInput } from "@/validators/auth.validator";
@@ -21,11 +22,48 @@ const GoogleIcon = () => (
 );
 
 export function RegisterForm() {
+  const router = useRouter();
   const { success: toastSuccess, error: toastError } = useToast();
   const [serverError, setServerError] = useState("");
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [resending, setResending] = useState(false);
   const [resentOk, setResentOk] = useState(false);
+
+  /* ── OTP verification step ── */
+  const [otp, setOtp] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [otpError, setOtpError] = useState("");
+
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    if (otp.length !== 6) return;
+    setVerifying(true);
+    setOtpError("");
+    try {
+      const res = await fetch(ROUTES.API.AUTH.VERIFY_OTP, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: registeredEmail, otp }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setOtpError(json.error ?? "Verification failed. Please try again.");
+        return;
+      }
+      toastSuccess(json.message ?? "Email verified!");
+      // Admins must sign in with their portal code; everyone else is auto-logged in
+      if (json.data?.requiresLogin) {
+        router.push(ROUTES.LOGIN);
+      } else {
+        router.push(ROUTES.ACCOUNT);
+        router.refresh();
+      }
+    } catch {
+      setOtpError("Network error. Please try again.");
+    } finally {
+      setVerifying(false);
+    }
+  }
 
   const {
     register,
@@ -80,7 +118,7 @@ export function RegisterForm() {
     }
   }
 
-  /* ── Success state ── */
+  /* ── OTP verification step ── */
   if (registeredEmail) {
     return (
       <div className="rounded-2xl border border-border bg-card p-10 shadow-sm text-center space-y-5">
@@ -88,20 +126,50 @@ export function RegisterForm() {
           📧
         </div>
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Check your email</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Enter verification code</h2>
           <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-            We sent a verification link to{" "}
+            We sent a 6-digit code to{" "}
             <span className="font-semibold text-foreground">{registeredEmail}</span>.
-            Click it to activate your account.
+            Enter it below to activate your account.
           </p>
           <p className="mt-1.5 text-xs text-muted-foreground">
             If you don&apos;t see it, check your <strong>Spam</strong> or <strong>Promotions</strong> folder.
           </p>
         </div>
 
+        <form onSubmit={handleVerifyOtp} className="space-y-4">
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            autoFocus
+            value={otp}
+            onChange={(e) => {
+              setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
+              setOtpError("");
+            }}
+            placeholder="••••••"
+            className="h-14 w-full rounded-xl border border-input bg-background text-center text-3xl font-bold tracking-[0.5em] placeholder:tracking-[0.5em] placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+
+          {otpError && (
+            <p className="text-sm text-destructive">{otpError}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={verifying || otp.length !== 6}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f0f0f] px-6 py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0f0f0f] disabled:opacity-50"
+          >
+            {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
+            {verifying ? "Verifying…" : "Verify & Continue →"}
+          </button>
+        </form>
+
         {resentOk ? (
           <div className="rounded-xl border border-brand-emerald/30 bg-brand-emerald/8 px-4 py-3 text-sm font-medium text-brand-emerald-dark">
-            Verification email resent! Check your inbox.
+            A new code has been sent! Check your inbox.
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -112,7 +180,7 @@ export function RegisterForm() {
               className="inline-flex items-center gap-1.5 font-semibold text-brand-emerald hover:underline disabled:opacity-60"
             >
               {resending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {resending ? "Sending…" : "Resend verification email"}
+              {resending ? "Sending…" : "Resend code"}
             </button>
           </p>
         )}

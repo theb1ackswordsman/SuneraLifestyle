@@ -645,10 +645,26 @@ function MobileDrawer({ open, onClose, user, onLogout }: {
     fetchNavCategories().then(setNavCats);
   }, []);
 
+  // Robust scroll lock — `overflow:hidden` alone doesn't stop touch-scroll on
+  // mobile (esp. iOS Safari). Pin the body with position:fixed and restore the
+  // scroll position on close.
   useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
+    if (!open) return;
+    const scrollY = window.scrollY;
+    const { body } = document;
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    return () => {
+      body.style.position = "";
+      body.style.top = "";
+      body.style.left = "";
+      body.style.right = "";
+      body.style.width = "";
+      window.scrollTo(0, scrollY);
+    };
   }, [open]);
 
   function toggleCategory(i: number) {
@@ -663,15 +679,16 @@ function MobileDrawer({ open, onClose, user, onLogout }: {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-foreground/50 touch-none overscroll-none"
           />
           <motion.aside
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed inset-y-0 left-0 z-50 flex w-[320px] max-w-[85vw] flex-col bg-background shadow-elevated"
+            transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+            className="fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[320px] max-w-[85vw] flex-col bg-background shadow-elevated will-change-transform"
           >
             {/* Drawer header */}
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -684,7 +701,7 @@ function MobileDrawer({ open, onClose, user, onLogout }: {
             </div>
 
             {/* Nav */}
-            <nav className="flex-1 overflow-y-auto p-4">
+            <nav className="flex-1 overflow-y-auto overscroll-contain p-4">
               <ul className="space-y-1">
                 {NAV_LINKS.map((link) => (
                   <li key={link.href}>

@@ -36,6 +36,11 @@ export const registerSchema = z
     path: ["confirmPassword"],
   });
 
+export const verifyOtpSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email"),
 });
@@ -84,6 +89,7 @@ export const updateProfileSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

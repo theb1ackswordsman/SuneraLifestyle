@@ -74,8 +74,6 @@ export async function sendEmail({ to, subject, html, text }: MailOptions): Promi
       headers: {
         "Message-ID": msgId,
         "Precedence": "transactional",
-        "List-Unsubscribe": `<${process.env.NEXT_PUBLIC_APP_URL ?? "https://sunera-lifestyle.vercel.app"}/unsubscribe>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
         "X-Mailer": "SunEra Lifestyle Transactional Mailer",
       },
     });

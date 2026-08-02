@@ -33,6 +33,7 @@ export interface ProductDetail {
     color: string;
     colorHex?: string;
     images: string[];
+    isDefault?: boolean;
   }[];
   variants: {
     _id: string;
@@ -140,6 +141,7 @@ export async function queryProductBySlug(slug: string): Promise<ProductDetail | 
       color: String(cg.color ?? ""),
       colorHex: cg.colorHex ? String(cg.colorHex) : undefined,
       images: Array.isArray(cg.images) ? (cg.images as string[]) : [],
+      isDefault: Boolean(cg.isDefault),
     })),
     variants,
   };

@@ -5,7 +5,7 @@ import { siteConfig } from "@/config/site";
 import { WA_LINK } from "@/lib/whatsapp";
 import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/shared/logo";
-import { Mail } from "lucide-react";
+import { Mail, Instagram, Facebook } from "lucide-react";
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -86,6 +86,28 @@ export async function Footer() {
               >
                 <Mail className="h-4 w-4 shrink-0" />
                 {siteConfig.contact.email}
+              </a>
+            </div>
+
+            {/* Social links */}
+            <div className="flex items-center gap-3 pt-2">
+              <a
+                href="https://www.instagram.com/suneralife?igsh=aWlkcmpldm9xYXZz"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Follow us on Instagram"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-brand-emerald hover:text-brand-emerald"
+              >
+                <Instagram className="h-4 w-4" />
+              </a>
+              <a
+                href="https://www.facebook.com/share/1HKcSKChP1/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Follow us on Facebook"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-brand-emerald hover:text-brand-emerald"
+              >
+                <Facebook className="h-4 w-4" />
               </a>
             </div>
           </div>
