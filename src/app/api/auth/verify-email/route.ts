@@ -2,9 +2,10 @@ import { NextRequest } from "next/server";
 import crypto from "crypto";
 import { connectDB } from "@/lib/db/connection";
 import { User } from "@/models/user.model";
+import { PendingSignup } from "@/models/pending-signup.model";
 import { sendEmail } from "@/lib/email/mailer";
 import { welcomeTemplate } from "@/lib/email/templates";
-import { ok, badRequest, notFound, handleApiError } from "@/lib/api/response";
+import { ok, badRequest, notFound, serverError, handleApiError } from "@/lib/api/response";
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,33 +44,43 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Resend a verification OTP
+// Resend a verification OTP for a pending (unverified) signup
 export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
     if (!email) return badRequest("Email is required");
 
     await connectDB();
-    const user = await User.findOne({ email: email.toLowerCase() }).select(
-      "+emailOtp +emailOtpExpiry +emailOtpAttempts"
-    );
+    const lowerEmail = String(email).toLowerCase();
+    const pending = await PendingSignup.findOne({ email: lowerEmail });
 
     // Always return success to prevent email enumeration
-    if (!user || user.isEmailVerified) {
-      return ok(null, "If an unverified account exists, a new code has been sent.");
+    if (!pending) {
+      return ok(null, "If a pending signup exists, a new code has been sent.");
     }
 
-    const { assignEmailOtp } = await import("@/lib/auth/otp");
+    const { generateOtp, hashOtp, OTP_TTL_MS } = await import("@/lib/auth/otp");
     const { verifyOtpTemplate } = await import("@/lib/email/templates");
 
-    const otp = assignEmailOtp(user);
-    await user.save();
+    const otp = generateOtp();
+    pending.otp = hashOtp(otp);
+    pending.otpExpiry = new Date(Date.now() + OTP_TTL_MS);
+    pending.attempts = 0;
+    await pending.save();
 
-    sendEmail({
-      to: user.email,
-      subject: `${otp} is your SunEra verification code`,
-      html: verifyOtpTemplate(user.name, otp),
-    }).catch(console.error);
+    // Blocking send so resend failures surface as a real error.
+    try {
+      await sendEmail({
+        to: lowerEmail,
+        subject: `${otp} is your SunEra verification code`,
+        html: verifyOtpTemplate(pending.name, otp),
+      });
+    } catch (err) {
+      console.error("[Email] Failed to resend verification OTP:", err);
+      return serverError(
+        "We couldn't send the code right now. Please try again in a moment."
+      );
+    }
 
     return ok(null, "A new verification code has been sent. Please check your inbox.");
   } catch (err) {

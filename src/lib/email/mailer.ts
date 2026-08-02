@@ -55,8 +55,11 @@ export async function sendEmail({ to, subject, html, text }: MailOptions): Promi
   const hasGmail = !!(gmailUser && gmailPass);
 
   if (!hasBrevo && !hasGmail) {
-    console.warn("[Email] No email credentials set (BREVO_SMTP_KEY/USER or EMAIL_USER/PASS) — skipping send to:", to);
-    return;
+    console.error(
+      "[Email] No email credentials configured. Set EMAIL_USER/EMAIL_PASS (Gmail) or BREVO_SMTP_USER/BREVO_SMTP_KEY in your environment. Intended recipient:",
+      to
+    );
+    throw new Error("Email service is not configured");
   }
 
   const from = process.env.EMAIL_FROM ?? `SunEra Lifestyle <${brevoUser ?? gmailUser}>`;

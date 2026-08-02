@@ -51,8 +51,8 @@ export function RegisterForm() {
         return;
       }
       toastSuccess(json.message ?? "Email verified!");
-      // Admins must sign in with their portal code; everyone else is auto-logged in
-      if (json.data?.requiresLogin) {
+      // No session was set in these cases — send them to sign in.
+      if (json.data?.requiresLogin || json.data?.alreadyVerified) {
         router.push(ROUTES.LOGIN);
       } else {
         router.push(ROUTES.ACCOUNT);
