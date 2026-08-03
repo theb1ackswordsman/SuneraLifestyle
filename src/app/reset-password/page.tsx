@@ -1,19 +1,9 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { AuthLayout } from "@/components/layout/auth-layout";
-import { ResetPasswordForm } from "@/components/auth/reset-password-form";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants";
 
-export const metadata: Metadata = {
-  title: "Reset Password",
-  description: "Create a new password for your SunEra Lifestyle account",
-};
-
+// The password reset flow is now OTP-based and lives entirely on the
+// /forgot-password page. Any old emailed reset links land here and are
+// redirected to start the new flow.
 export default function ResetPasswordPage() {
-  return (
-    <AuthLayout>
-      <Suspense>
-        <ResetPasswordForm />
-      </Suspense>
-    </AuthLayout>
-  );
+  redirect(ROUTES.FORGOT_PASSWORD);
 }

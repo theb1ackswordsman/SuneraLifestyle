@@ -32,6 +32,7 @@ export interface IUserDocument extends Document {
   emailOtpAttempts?: number;
   passwordResetToken?: string;
   passwordResetExpiry?: Date;
+  passwordResetAttempts?: number;
   refreshTokens: string[];
   loginAttempts: number;
   lockUntil?: Date;
@@ -89,6 +90,7 @@ const userSchema = new Schema<IUserDocument>(
     emailOtpAttempts: { type: Number, default: 0, select: false },
     passwordResetToken: { type: String, select: false },
     passwordResetExpiry: { type: Date, select: false },
+    passwordResetAttempts: { type: Number, default: 0, select: false },
     refreshTokens: { type: [String], default: [], select: false },
     adminPortalCode: { type: String, select: false },
     loginAttempts: { type: Number, default: 0 },

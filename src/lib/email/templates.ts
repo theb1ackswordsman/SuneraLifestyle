@@ -91,6 +91,19 @@ export function resetPasswordTemplate(name: string, token: string): string {
   `);
 }
 
+export function resetPasswordOtpTemplate(name: string, otp: string): string {
+  return wrapper(`
+    <h2 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#0a0a0a;">Reset Your Password</h2>
+    <p style="margin:0 0 8px;color:#4b5563;font-size:15px;line-height:1.6;">
+      Hi <strong>${name}</strong>, we received a request to reset your password. Enter the code below on the website to set a new password.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <div style="display:inline-block;background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:18px 30px;font-size:36px;font-weight:900;letter-spacing:12px;color:#0a0a0a;font-family:'Courier New',monospace;">${otp}</div>
+    </div>
+    ${note("This code expires in <strong>2 minutes</strong>. If you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.")}
+  `);
+}
+
 // ─── Order confirmation ───────────────────────────────────────────────────────
 
 interface OrderItem { name: string; image: string; quantity: number; price: number }

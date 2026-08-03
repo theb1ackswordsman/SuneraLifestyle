@@ -71,6 +71,7 @@ export const ROUTES = {
       REFRESH: "/api/auth/refresh",
       ME: "/api/auth/me",
       FORGOT_PASSWORD: "/api/auth/forgot-password",
+      FORGOT_PASSWORD_VERIFY: "/api/auth/forgot-password/verify-otp",
       RESET_PASSWORD: "/api/auth/reset-password",
       VERIFY_EMAIL: "/api/auth/verify-email",
       VERIFY_OTP: "/api/auth/verify-otp",

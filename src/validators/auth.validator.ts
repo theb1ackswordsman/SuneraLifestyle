@@ -45,9 +45,18 @@ export const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email"),
 });
 
+// Step 2 of the reset flow — validate the emailed OTP before showing the
+// new-password card.
+export const forgotPasswordVerifySchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
+});
+
+// Step 3 — set the new password using the verified email + OTP.
 export const resetPasswordSchema = z
   .object({
-    token: z.string().min(1),
+    email: z.string().email("Please enter a valid email"),
+    otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters")
@@ -91,6 +100,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ForgotPasswordVerifyInput = z.infer<typeof forgotPasswordVerifySchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

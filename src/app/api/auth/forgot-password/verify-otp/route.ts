@@ -2,24 +2,25 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/connection";
 import { User } from "@/models/user.model";
 import { hashOtp, OTP_MAX_ATTEMPTS } from "@/lib/auth/otp";
-import { resetPasswordSchema } from "@/validators/auth.validator";
+import { forgotPasswordVerifySchema } from "@/validators/auth.validator";
 import { ok, badRequest, tooManyRequests, handleApiError } from "@/lib/api/response";
 
 /**
- * Step 3 of the password reset: re-verify the OTP and set the new password.
- * The OTP is consumed here (cleared on success) and all sessions are revoked.
+ * Step 2 of the password reset: validate the emailed OTP before revealing the
+ * new-password card. The code is NOT consumed here — the final reset step
+ * re-verifies it — so the same 2-minute window covers both steps.
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const parsed = resetPasswordSchema.safeParse(body);
+    const parsed = forgotPasswordVerifySchema.safeParse(body);
     if (!parsed.success) return badRequest(parsed.error.issues[0]?.message ?? "Invalid input");
 
-    const { email, otp, password } = parsed.data;
+    const { email, otp } = parsed.data;
 
     await connectDB();
     const user = await User.findOne({ email: email.toLowerCase(), isActive: true }).select(
-      "+passwordResetToken +passwordResetExpiry +passwordResetAttempts +refreshTokens"
+      "+passwordResetToken +passwordResetExpiry +passwordResetAttempts"
     );
 
     if (!user || !user.passwordResetToken || !user.passwordResetExpiry) {
@@ -48,17 +49,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Correct code — set the new password (pre-save hook hashes it) and consume the OTP.
-    user.password = password;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpiry = undefined;
-    user.passwordResetAttempts = 0;
-    user.refreshTokens = []; // Invalidate all existing sessions
-    user.loginAttempts = 0;
-    user.lockUntil = undefined;
-    await user.save();
-
-    return ok(null, "Password reset successfully. You can now log in with your new password.");
+    return ok({ valid: true }, "Code verified. You can now set a new password.");
   } catch (err) {
     return handleApiError(err);
   }
