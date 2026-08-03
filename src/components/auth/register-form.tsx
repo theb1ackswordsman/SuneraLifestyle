@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -11,6 +11,14 @@ import { PasswordInput, PasswordStrengthBar } from "@/components/ui/password-inp
 import { useToast } from "@/hooks/use-toast";
 import { ROUTES } from "@/constants";
 import { Loader2 } from "lucide-react";
+
+/** OTP stays valid for 2 minutes — must mirror OTP_TTL_MS on the server. */
+const OTP_WINDOW_MS = 2 * 60 * 1000;
+
+function formatCountdown(ms: number) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 
 const GoogleIcon = () => (
   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none">
@@ -33,6 +41,19 @@ export function RegisterForm() {
   const [otp, setOtp] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [otpError, setOtpError] = useState("");
+
+  /* ── OTP countdown (2-minute validity) ── */
+  const [otpExpiresAt, setOtpExpiresAt] = useState(0);
+  const [msLeft, setMsLeft] = useState(0);
+  const otpExpired = otpExpiresAt > 0 && msLeft <= 0;
+
+  useEffect(() => {
+    if (!otpExpiresAt) return;
+    const tick = () => setMsLeft(otpExpiresAt - Date.now());
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [otpExpiresAt]);
 
   async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -90,6 +111,7 @@ export function RegisterForm() {
         return;
       }
       setRegisteredEmail(data.email);
+      setOtpExpiresAt(Date.now() + OTP_WINDOW_MS);
       toastSuccess(json.message ?? "Account created! Check your email.");
     } catch {
       setServerError("Network error. Please check your connection.");
@@ -108,6 +130,9 @@ export function RegisterForm() {
       const json = await res.json();
       if (res.ok) {
         setResentOk(true);
+        setOtp("");
+        setOtpError("");
+        setOtpExpiresAt(Date.now() + OTP_WINDOW_MS); // restart the 2-min window
       } else {
         toastError(json.error ?? "Could not resend email. Please try again.");
       }
@@ -157,9 +182,23 @@ export function RegisterForm() {
             <p className="text-sm text-destructive">{otpError}</p>
           )}
 
+          {/* Countdown — code is valid for 2 minutes */}
+          {otpExpired ? (
+            <p className="text-sm font-medium text-destructive">
+              Your code has expired. Please request a new one below.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Code expires in{" "}
+              <span className="font-mono font-semibold text-foreground">
+                {formatCountdown(msLeft)}
+              </span>
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={verifying || otp.length !== 6}
+            disabled={verifying || otp.length !== 6 || otpExpired}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0f0f0f] px-6 py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0f0f0f] disabled:opacity-50"
           >
             {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -167,13 +206,13 @@ export function RegisterForm() {
           </button>
         </form>
 
-        {resentOk ? (
+        {resentOk && !otpExpired ? (
           <div className="rounded-xl border border-brand-emerald/30 bg-brand-emerald/8 px-4 py-3 text-sm font-medium text-brand-emerald-dark">
             A new code has been sent! Check your inbox.
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Didn&apos;t receive it?{" "}
+            {otpExpired ? "Didn't get a code or it expired?" : "Didn't receive it?"}{" "}
             <button
               onClick={handleResend}
               disabled={resending}
@@ -206,7 +245,7 @@ export function RegisterForm() {
 
       {/* Google OAuth */}
       <a
-        href="/api/auth/google"
+        href="/api/auth/google?flow=signup"
         className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-background py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <GoogleIcon />

@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
   }
 
   const storeSettings = await StoreSettings.findOne().lean();
-  const freeAboveThreshold = storeSettings?.shipping?.freeAbove ?? 999;
+  const freeAboveThreshold = storeSettings?.shipping?.freeAbove ?? 1199;
   const configuredStandardFee = storeSettings?.shipping?.standardFee ?? 99;
 
   const validatedSubtotal = validatedItems.reduce((s, i) => s + i.price * i.quantity, 0);

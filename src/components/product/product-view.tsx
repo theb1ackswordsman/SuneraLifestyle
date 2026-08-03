@@ -275,7 +275,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
           <ChevronRight className="h-3 w-3" />
           <Link href="/shop" className="hover:text-foreground transition-colors">Shop</Link>
           <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground line-clamp-1 max-w-[140px] sm:max-w-none">{product.name}</span>
+          <span className="text-foreground line-clamp-1 max-w-35 sm:max-w-none">{product.name}</span>
         </nav>
 
         {/* Main */}
@@ -413,7 +413,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
                   </button>
                 </div>
 
-                <Button variant="primary" size="lg" onClick={addToCart} className="flex-1 min-w-[130px] h-11 text-xs font-bold">
+                <Button variant="primary" size="lg" onClick={addToCart} className="flex-1 min-w-32.5 h-11 text-xs font-bold">
                   {added ? (
                     <><Check className="h-4 w-4" /> Added to Cart</>
                   ) : (
@@ -421,7 +421,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
                   )}
                 </Button>
 
-                <Button variant="default" size="lg" onClick={handleBuyNow} className="flex-1 min-w-[130px] h-11 text-xs font-bold bg-[#1a5c14] hover:bg-[#103a0c] text-white">
+                <Button variant="default" size="lg" onClick={handleBuyNow} className="flex-1 min-w-32.5 h-11 text-xs font-bold bg-[#1a5c14] hover:bg-[#103a0c] text-white">
                   Buy Now
                 </Button>
 
@@ -530,7 +530,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
             {/* Trust row */}
             <div className="mt-6 sm:mt-7 grid grid-cols-3 gap-2 sm:gap-3 border-t border-border pt-5 sm:pt-6">
               {[
-                { icon: Truck, label: "Free delivery", sub: "Over ₹999" },
+                { icon: Truck, label: "Free delivery", sub: "Over ₹1199" },
                 { icon: RefreshCw, label: "7-day returns", sub: "Hassle-free" },
                 { icon: ShieldCheck, label: "100% authentic", sub: "Lab tested" },
               ].map(({ icon: Icon, label, sub }) => (
@@ -683,7 +683,7 @@ export function ProductView({ product, related }: { product: ProductDetail; rela
 
             {/* Footer details inside modal */}
             <div className="absolute bottom-4 left-0 right-0 text-center text-xs font-semibold text-white/80 flex items-center justify-center gap-3">
-              <span className="truncate max-w-[200px] sm:max-w-none">{product.name}</span>
+              <span className="truncate max-w-50 sm:max-w-none">{product.name}</span>
               {selectedColor && <span>· Color: <strong className="text-white">{selectedColor}</strong></span>}
               <span>· {activeImg + 1} / {gallery.length}</span>
             </div>

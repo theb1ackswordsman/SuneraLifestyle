@@ -48,7 +48,7 @@ const NAV_LINKS = [
 
 // ─── Announcement Bar ─────────────────────────────────────────────────────────
 function AnnouncementBar({ visible }: { visible: boolean }) {
-  const [freeAbove, setFreeAbove] = useState(999);
+  const [freeAbove, setFreeAbove] = useState(1199);
 
   useEffect(() => {
     fetch("/api/settings/public")
@@ -688,7 +688,7 @@ function MobileDrawer({ open, onClose, user, onLogout }: {
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-            className="fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[320px] max-w-[85vw] flex-col bg-background shadow-elevated will-change-transform"
+            className="fixed inset-y-0 left-0 z-50 flex h-dvh w-[320px] max-w-[85vw] flex-col bg-background shadow-elevated will-change-transform"
           >
             {/* Drawer header */}
             <div className="flex items-center justify-between border-b border-border px-5 py-4">

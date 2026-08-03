@@ -36,7 +36,7 @@ interface Line extends CartProduct {
   selectedColor?: string;
 }
 
-const FREE_SHIP_THRESHOLD = 999;
+const FREE_SHIP_THRESHOLD = 1199;
 const SHIPPING_FEE        = 99;
 
 export function CartView() {

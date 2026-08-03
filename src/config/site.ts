@@ -45,7 +45,7 @@ export const siteConfig = {
     locale: "en-IN",
   },
   shipping: {
-    freeAbove: 999,
+    freeAbove: 1199,
     standardFee: 99,
     expressFee: 199,
     estimatedDays: { standard: "5-7", express: "2-3" },

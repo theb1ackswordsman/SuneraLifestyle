@@ -46,6 +46,7 @@ const GOOGLE_ERRORS: Record<string, string> = {
   google_invalid_state:  "Invalid state — please try again.",
   google_token_failed:   "Google sign-in failed. Please try again.",
   google_userinfo_failed:"Could not retrieve your Google profile.",
+  google_no_account:     "No account found for that Google email. Please create an account first.",
 };
 
 export function LoginForm() {
@@ -258,7 +259,7 @@ export function LoginForm() {
 
       {/* Google OAuth */}
       <a
-        href="/api/auth/google"
+        href="/api/auth/google?flow=login"
         className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-background py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <GoogleIcon />

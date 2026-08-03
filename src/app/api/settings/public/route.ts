@@ -10,7 +10,7 @@ export async function GET() {
     const doc = await StoreSettings.findOne().lean();
     const settings = doc ?? (await StoreSettings.create({
       shipping: {
-        freeAbove: 999,
+        freeAbove: 1199,
         standardFee: 99,
         expressFee: 199,
         standardDays: "5-7",
@@ -25,7 +25,7 @@ export async function GET() {
       success: true,
       data: {
         shipping: {
-          freeAbove: shipping.freeAbove ?? 999,
+          freeAbove: shipping.freeAbove ?? 1199,
           standardFee: shipping.standardFee ?? 99,
           expressFee: shipping.expressFee ?? 199,
           standardDays: shipping.standardDays ?? "5-7",
@@ -43,7 +43,7 @@ export async function GET() {
       {
         success: true,
         data: {
-          shipping: { freeAbove: 999, standardFee: 99, expressFee: 199, standardDays: "5-7", expressDays: "2-3" },
+          shipping: { freeAbove: 1199, standardFee: 99, expressFee: 199, standardDays: "5-7", expressDays: "2-3" },
         },
       },
       { status: 200 }

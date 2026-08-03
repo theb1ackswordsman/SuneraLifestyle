@@ -53,7 +53,7 @@ const storeSettingsSchema = new Schema<IStoreSettings>(
       youtube:   { type: String, default: "" },
     },
     shipping: {
-      freeAbove:    { type: Number, default: 999 },
+      freeAbove:    { type: Number, default: 1199 },
       standardFee:  { type: Number, default: 99 },
       expressFee:   { type: Number, default: 199 },
       standardDays: { type: String, default: "5-7" },

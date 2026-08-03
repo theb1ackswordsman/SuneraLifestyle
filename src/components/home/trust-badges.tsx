@@ -1,7 +1,7 @@
 import { Truck, ShieldCheck, RotateCcw, Headphones } from "lucide-react";
 
 const BADGES = [
-  { Icon: Truck,       label: "Free Shipping",    sub: "On all orders above ₹999"    },
+  { Icon: Truck,       label: "Free Shipping",    sub: "On all orders above ₹1199"   },
   { Icon: ShieldCheck, label: "Secure Payment",    sub: "SSL encrypted checkout"       },
   { Icon: RotateCcw,   label: "Easy Returns",      sub: "7-day hassle-free returns"    },
   { Icon: Headphones,  label: "Online Support",    sub: "Mon–Sat, 9am to 6pm"         },

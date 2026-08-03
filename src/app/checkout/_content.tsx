@@ -60,7 +60,7 @@ const INDIAN_STATES = [
   "Ladakh","Puducherry",
 ];
 
-const FREE_SHIP = 999;
+const FREE_SHIP = 1199;
 const SHIP_FEE  = 99;
 
 // ─── Razorpay script loader ───────────────────────────────────────────────────
@@ -330,7 +330,7 @@ function SuccessScreen({ orderNumber }: { orderNumber: string }) {
 
         <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 w-full max-w-md text-sm">
           {[
-            { icon: Truck,       label: "Free shipping",  sub: "On orders above ₹999" },
+            { icon: Truck,       label: "Free shipping",  sub: "On orders above ₹1199" },
             { icon: RefreshCw,   label: "Easy returns",   sub: "7-day hassle-free returns" },
             { icon: ShieldCheck, label: "100% authentic", sub: "All products lab-tested" },
             { icon: Star,        label: "Earn rewards",   sub: "Points added to your account" },
@@ -384,7 +384,7 @@ export function CheckoutContent({
 
   const [showCouponPicker, setShowCouponPicker] = useState(false);
   const [applied,          setApplied]          = useState<AppliedCoupon | null>(null);
-  const [shippingSettings, setShippingSettings] = useState({ freeAbove: 999, standardFee: 99 });
+  const [shippingSettings, setShippingSettings] = useState({ freeAbove: 1199, standardFee: 99 });
 
   const [placing,          setPlacing]          = useState(false);
   const [orderDone,        setOrderDone]        = useState<string | null>(null);
@@ -467,7 +467,7 @@ export function CheckoutContent({
       .then((j) => {
         if (j.success && j.data?.shipping) {
           setShippingSettings({
-            freeAbove: j.data.shipping.freeAbove ?? 999,
+            freeAbove: j.data.shipping.freeAbove ?? 1199,
             standardFee: j.data.shipping.standardFee ?? 99,
           });
         }

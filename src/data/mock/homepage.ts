@@ -440,6 +440,6 @@ export const TRUST_BADGES = [
   { icon: "🧪", label: "Ayurvedic Formula", sub: "Time-tested recipes" },
   { icon: "✅", label: "No Side Effects", sub: "Safe for the family" },
   { icon: "🇮🇳", label: "Made in India", sub: "Crafted in Surat, Gujarat" },
-  { icon: "🚚", label: "Fast Delivery", sub: "Free above ₹999" },
+  { icon: "🚚", label: "Fast Delivery", sub: "Free above ₹1199" },
 ];
 

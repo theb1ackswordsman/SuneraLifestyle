@@ -30,21 +30,26 @@ export async function GET(req: NextRequest) {
   // Verify CSRF state
   const cookieStore = await cookies();
   const savedState  = cookieStore.get("google_oauth_state")?.value;
+  const flow        = cookieStore.get("google_oauth_flow")?.value === "signup" ? "signup" : "login";
   cookieStore.delete("google_oauth_state");
+  cookieStore.delete("google_oauth_flow");
+
+  // Where to send the user back on error, based on their original intent
+  const errorReturn = flow === "signup" ? "/register" : "/login";
 
   if (!state || state !== savedState) {
-    return NextResponse.redirect(`${appUrl}/login?error=google_invalid_state`);
+    return NextResponse.redirect(`${appUrl}${errorReturn}?error=google_invalid_state`);
   }
 
   if (!code) {
-    return NextResponse.redirect(`${appUrl}/login?error=google_no_code`);
+    return NextResponse.redirect(`${appUrl}${errorReturn}?error=google_no_code`);
   }
 
   const clientId     = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    return NextResponse.redirect(`${appUrl}/login?error=google_not_configured`);
+    return NextResponse.redirect(`${appUrl}${errorReturn}?error=google_not_configured`);
   }
 
   // Exchange auth code for access token
@@ -61,7 +66,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!tokenRes.ok) {
-    return NextResponse.redirect(`${appUrl}/login?error=google_token_failed`);
+    return NextResponse.redirect(`${appUrl}${errorReturn}?error=google_token_failed`);
   }
 
   const { access_token } = (await tokenRes.json()) as { access_token: string };
@@ -72,7 +77,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!infoRes.ok) {
-    return NextResponse.redirect(`${appUrl}/login?error=google_userinfo_failed`);
+    return NextResponse.redirect(`${appUrl}${errorReturn}?error=google_userinfo_failed`);
   }
 
   const googleUser = (await infoRes.json()) as GoogleUserInfo;
@@ -95,8 +100,8 @@ export async function GET(req: NextRequest) {
     // Google-verified email counts as verified
     user.isEmailVerified = true;
     user.lastLoginAt     = new Date();
-  } else {
-    // New user — create from Google profile
+  } else if (flow === "signup") {
+    // New user via the sign-up flow — create from Google profile
     user = new User({
       name:            googleUser.name,
       email:           googleUser.email.toLowerCase(),
@@ -105,6 +110,10 @@ export async function GET(req: NextRequest) {
       isEmailVerified: true,
       role:            "customer",
     });
+  } else {
+    // Login flow but no account exists — do NOT auto-create.
+    // Send them to sign up first.
+    return NextResponse.redirect(`${appUrl}/login?error=google_no_account`);
   }
 
   const tokenPayload = {

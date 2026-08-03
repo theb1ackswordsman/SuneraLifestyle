@@ -2,7 +2,7 @@ import crypto from "crypto";
 import type { IUserDocument } from "@/models/user.model";
 
 /** How long an email OTP stays valid. */
-export const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const OTP_TTL_MS = 2 * 60 * 1000; // 2 minutes
 /** Max wrong attempts before the code is burned and a new one must be requested. */
 export const OTP_MAX_ATTEMPTS = 5;
 

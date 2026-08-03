@@ -138,7 +138,7 @@ export default async function CollectionPage({
       {/* ------------------------------------------------------------------ */}
       {/* 1. Hero Section                                                   */}
       {/* ------------------------------------------------------------------ */}
-      <div className="relative overflow-hidden min-h-[380px] sm:min-h-[460px] lg:min-h-[520px] flex items-end bg-gray-950">
+      <div className="relative overflow-hidden min-h-95 sm:min-h-115 lg:min-h-130 flex items-end bg-gray-950">
         {/* Hero Background Image */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -148,7 +148,7 @@ export default async function CollectionPage({
         />
 
         {/* Clean neutral dark gradient overlay without any green tint */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/30 to-black/10" />
 
         {/* Content Box */}
         <div className="relative z-10 container-padded pb-12 pt-32 sm:pb-16 sm:pt-40 w-full">
@@ -230,7 +230,7 @@ export default async function CollectionPage({
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-900">Free Express Shipping</p>
-                <p className="text-[11px] text-gray-500">On all orders above ₹999</p>
+                <p className="text-[11px] text-gray-500">On all orders above ₹1199</p>
               </div>
             </div>
 
@@ -335,7 +335,7 @@ export default async function CollectionPage({
       {/* ------------------------------------------------------------------ */}
       {/* 5. Bottom Call-To-Action Banner                                    */}
       {/* ------------------------------------------------------------------ */}
-      <div className="border-t border-gray-100 bg-gradient-to-r from-[#071f04] via-[#103a0c] to-[#1a5c14] py-12 text-white">
+      <div className="border-t border-gray-100 bg-linear-to-r from-[#071f04] via-[#103a0c] to-[#1a5c14] py-12 text-white">
         <div className="container-padded flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center sm:text-left">
             <span className="text-xs font-bold uppercase tracking-widest text-[#f5a823]">Explore More</span>

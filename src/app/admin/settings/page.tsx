@@ -411,7 +411,7 @@ function ShippingTab({ settings, onChange, onSave }: {
           value={settings.shipping.freeAbove}
           onChange={(v) => setShipping("freeAbove", Number(v))}
           type="number"
-          placeholder="999"
+          placeholder="1199"
           hint="Orders above this amount get free shipping"
         />
         <Field
